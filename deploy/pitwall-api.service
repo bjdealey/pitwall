@@ -1,0 +1,16 @@
+[Unit]
+Description=Pitwall API and dashboard
+Wants=network-online.target
+After=network-online.target pitwall-engine.service
+
+[Service]
+Type=simple
+User=pitwall
+WorkingDirectory=/home/pitwall/pitwall
+EnvironmentFile=/home/pitwall/pitwall/.env
+ExecStart=/usr/bin/node src/api/main.ts
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

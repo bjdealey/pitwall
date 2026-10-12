@@ -1,0 +1,12 @@
+[Unit]
+Description=Pitwall SQLite backup
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=pitwall
+WorkingDirectory=/home/pitwall/pitwall
+EnvironmentFile=/home/pitwall/pitwall/.env
+# $$ hands a literal $ to the shell, which reads PITWALL_DB and PITWALL_BACKUP_TARGET from the environment.
+ExecStart=/bin/sh -c 'mkdir -p data/backups && sqlite3 "$${PITWALL_DB}" ".backup data/backups/pitwall-$$(date +%%F).db" && find data/backups -name "pitwall-*.db" -mtime +14 -delete && rsync -a data/backups/ "$${PITWALL_BACKUP_TARGET}"'
