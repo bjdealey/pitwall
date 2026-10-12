@@ -152,8 +152,8 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-content { overflow-y: auto; }
 .pw-main { display: flex; flex-direction: column; gap: var(--space-6); width: 100%; max-width: 1280px; padding: var(--space-6); }
 
-.pw-grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
-.pw-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.pw-grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4); }
+.pw-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: var(--space-4); align-items: start; }
 .pw-col { display: flex; flex-direction: column; gap: var(--space-4); }
 .pw-col > p { margin: 0; }
 .pw-main .pw-health, .pw-main .pw-table-wrap { border: 1px solid var(--border); border-radius: var(--radius-md); }
