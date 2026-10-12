@@ -25,7 +25,7 @@ npm run dev
 
 The appended lines override the empty ones from the example. Keep the single quotes around the hash, because it contains `$` characters.
 
-`npm run dev` starts the engine on the simulated broker, the API on `127.0.0.1:8080` and Vite on `http://127.0.0.1:5173`, with prefixed output. The simulator gives every symbol a seeded random walk with a new bar every 5 seconds, an always-open market, $50,000 of cash and instant fills. It resets when the engine restarts.
+`npm run dev` starts the engine with the broker `.env` names in `PITWALL_BROKER`, the API on `127.0.0.1:8080` and Vite on `http://127.0.0.1:5173`, with prefixed output. With `PITWALL_BROKER=sim` the simulator gives every symbol a seeded random walk with a new bar every 5 seconds, an always-open market, $50,000 of cash and instant fills. It resets when the engine restarts.
 
 Other scripts:
 
