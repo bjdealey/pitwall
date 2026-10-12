@@ -18,7 +18,5 @@ export interface Broker {
 
 export const clientOrderId = (strategyId: StrategyId, now: Date) => `${strategyId}-${now.getTime()}`;
 
-export function strategyOf(clientOrderId: string, known: ReadonlySet<StrategyId>): StrategyId | null {
-  const id = clientOrderId.replace(/-\d+$/, '') as StrategyId;
-  return known.has(id) ? id : null;
-}
+/** The strategy part of a `<strategyId>-<timestamp>` client order id. */
+export const strategyPrefix = (clientOrderId: string) => clientOrderId.replace(/-\d+$/, '');
