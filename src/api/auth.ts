@@ -14,7 +14,6 @@ export async function hashPasscode(passcode: string): Promise<string> {
   return `$argon2id$v=19$m=${COST.memory},t=${COST.passes},p=${COST.parallelism}$${b64(nonce)}$${b64(tag)}`;
 }
 
-/** Parses the PHC string printed by `npm run hash-passcode`. */
 export function parsePasscodeHash(encoded: string): PasscodeHash | null {
   const m = /^\$argon2id\$v=19\$m=(\d+),t=(\d+),p=(\d+)\$([A-Za-z0-9+/]+)\$([A-Za-z0-9+/]+)$/.exec(encoded);
   if (!m) return null;

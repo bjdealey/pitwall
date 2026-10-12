@@ -22,10 +22,6 @@ type Walk = { closes: number[]; random: () => number; lastBarAt: number };
 
 const nextClose = (price: number, random: () => number) => Math.round(price * (1 + (random() - 0.5) * 0.004) * 100) / 100;
 
-/**
- * In-memory broker for development and tests: seeded random-walk prices with a
- * new bar every 5s, an always-open clock and immediate fills. Restarting resets it.
- */
 export class SimBroker implements Broker {
   #walks = new Map<string, Walk>();
   #cash = START_CASH;

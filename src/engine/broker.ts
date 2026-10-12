@@ -18,5 +18,4 @@ export interface Broker {
 
 export const clientOrderId = (strategyId: StrategyId, now: Date) => `${strategyId}-${now.getTime()}`;
 
-/** The strategy part of a `<strategyId>-<timestamp>` client order id. */
 export const strategyPrefix = (clientOrderId: string) => clientOrderId.replace(/-\d+$/, '');
