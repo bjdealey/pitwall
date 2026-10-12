@@ -1,0 +1,43 @@
+{
+  "name": "pitwall",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.7"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.ts",
+    "build": "vite build",
+    "start": "node -e \"console.log('Pitwall runs as two processes: npm run start:engine and npm run start:api (systemd units in deploy/ on the Pi).')\"",
+    "start:engine": "node --env-file-if-exists=.env src/engine/main.ts",
+    "start:api": "node --env-file-if-exists=.env src/api/main.ts",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.web.json",
+    "tokens": "node scripts/tokens.ts",
+    "hash-passcode": "node scripts/hash-passcode.ts",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@hono/node-server": "^2.1.4",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.13",
+    "lucide-react": "^1.55.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
+}
