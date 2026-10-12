@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Account, Position } from '../shared/domain.ts';
 import type { Broker, BrokerOrder, Clock, OrderRequest } from './broker.ts';
-import { atET } from './market-session.ts';
+import { atET } from '../shared/et.ts';
 
 const START_CASH = 50_000;
 const BAR_MS = 5_000;
