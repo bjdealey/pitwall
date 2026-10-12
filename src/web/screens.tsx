@@ -4,6 +4,7 @@ import type { Snapshot, Strategy } from '../shared/domain.ts';
 import { etClock, glyph, money, qty, signedMoney, signedPct, tone } from '../shared/format.ts';
 import { ConfirmSheet, Delta, Empty, EventRow, HealthStrip, HoldToFlatten, LimitMeter, PasscodeInput, SignedMoney, Sparkline, StatTile, StrategyRow, toneClass } from './components.tsx';
 import { sendCommand } from './data.ts';
+import { isOpenOrder } from '../shared/orders.ts';
 
 export type ScreenProps = { snapshot: Snapshot; stale: boolean; heartbeatAgeMs: number; openPauseAll: () => void };
 
@@ -84,12 +85,16 @@ export function Overview({ snapshot, stale, heartbeatAgeMs, openPauseAll }: Scre
         )}
       </section>
 
-      {flattening && <FlattenSheet onClose={() => setFlattening(false)} />}
+      {flattening && <FlattenSheet snapshot={snapshot} onClose={() => setFlattening(false)} />}
     </>
   );
 }
 
-function FlattenSheet({ onClose }: { onClose: () => void }) {
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+const openOrdersLine = (snapshot: Snapshot | null) => (snapshot ? `Cancels ${count(snapshot.orders.filter(isOpenOrder).length, 'open order')}.` : 'Cancels open orders.');
+
+function FlattenSheet({ snapshot, onClose }: { snapshot: Snapshot; onClose: () => void }) {
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -105,15 +110,15 @@ function FlattenSheet({ onClose }: { onClose: () => void }) {
     <ConfirmSheet title="Flatten all positions?" confirmLabel="Flatten" confirmClass="pw-btn-danger" busy={busy} onConfirm={confirm} onCancel={onClose}>
       <ul>
         <li>Pauses every strategy.</li>
-        <li>Cancels open orders.</li>
-        <li>Closes every position at market.</li>
+        <li>{openOrdersLine(snapshot)}</li>
+        <li>{snapshot ? `Closes ${count(snapshot.positions.length, 'position')} at market.` : 'Closes every position at market.'}</li>
       </ul>
       <PasscodeInput value={passcode} onChange={setPasscode} error={error} help="Flatten always asks for the passcode." />
     </ConfirmSheet>
   );
 }
 
-export function PauseAllSheet({ onClose }: { onClose: () => void }) {
+export function PauseAllSheet({ snapshot, onClose }: { snapshot: Snapshot | null; onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const confirm = async () => {
@@ -124,11 +129,11 @@ export function PauseAllSheet({ onClose }: { onClose: () => void }) {
     else setError(result.error);
   };
   return (
-    <ConfirmSheet title="Pause all strategies?" confirmLabel="Pause all" confirmClass="pw-btn-stop" busy={busy} error={error} onConfirm={confirm} onCancel={onClose}>
+    <ConfirmSheet title="Pause all strategies?" confirmLabel="Pause all" confirmClass="pw-btn-danger" busy={busy} error={error} onConfirm={confirm} onCancel={onClose}>
       <ul>
-        <li>Stops new orders from every strategy.</li>
-        <li>Cancels open orders.</li>
-        <li>Keeps positions.</li>
+        <li>{snapshot ? `Stops new orders from ${count(snapshot.strategies.filter((s) => s.state.kind === 'running').length, 'running strategy', 'running strategies')}.` : 'Stops new orders from every strategy.'}</li>
+        <li>{openOrdersLine(snapshot)}</li>
+        <li>{snapshot ? `Keeps ${count(snapshot.positions.length, 'position')} open.` : 'Keeps positions open.'}</li>
       </ul>
     </ConfirmSheet>
   );

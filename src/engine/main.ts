@@ -9,6 +9,7 @@ import { openDb } from '../shared/db.ts';
 import { engineEnvSchema, parseEnv } from '../shared/env.ts';
 import { atET, et } from '../shared/et.ts';
 import { money, qty } from '../shared/format.ts';
+import { isOpenOrder } from '../shared/orders.ts';
 import * as t from '../shared/schema.ts';
 import { AlpacaBroker } from './alpaca-broker.ts';
 import { clientOrderId, strategyPrefix, type Broker, type BrokerOrder, type Clock } from './broker.ts';
@@ -23,7 +24,6 @@ const TICK_MS = 5_000;
 const ERROR_DEDUPE_MS = 60_000;
 const PRUNE_EVERY_MS = 3_600_000;
 const KEEP_SAMPLES_MS = 30 * 86_400_000;
-const FINISHED = new Set(['filled', 'canceled', 'expired', 'rejected', 'replaced', 'done_for_day']);
 
 const env = parseEnv(engineEnvSchema);
 const mode: Mode = env.PITWALL_BROKER === 'alpaca' && env.PITWALL_LIVE ? 'live' : 'paper';
@@ -105,7 +105,7 @@ async function piHealth(): Promise<Omit<Health, 'brokerConnected'>> {
 async function runStrategies(now: Date, view: NonNullable<typeof latest>) {
   for (const s of configured) {
     if (states.get(s.id)?.kind !== 'running') continue;
-    if (view.orders.some((o) => strategyOf(o) === s.id && !FINISHED.has(o.status))) continue;
+    if (view.orders.some((o) => strategyOf(o) === s.id && isOpenOrder(o))) continue;
     try {
       const decision = decide(await broker.getBars(s.symbol, 31), view.positions.find((p) => p.symbol === s.symbol)?.qty ?? 0);
       if (!decision) continue;

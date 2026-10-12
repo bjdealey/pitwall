@@ -14,9 +14,9 @@ export function ModeBanner({ mode }: { mode: Mode | null }) {
 
 const MARKET: Record<MarketSession['state'], { dot: string; next: string }> = {
   open: { dot: 'pw-dot pw-dot-pos', next: 'closes' },
-  pre: { dot: 'pw-dot', next: 'opens' },
-  after: { dot: 'pw-dot', next: 'ends' },
-  closed: { dot: 'pw-dot pw-dot-ring', next: 'opens' },
+  pre: { dot: 'pw-dot pw-dot-ring', next: 'opens' },
+  after: { dot: 'pw-dot pw-dot-ring', next: 'ends' },
+  closed: { dot: 'pw-dot', next: 'opens' },
 };
 
 export function MarketChip({ market, now }: { market: MarketSession; now: number }) {
@@ -105,6 +105,18 @@ export function LimitMeter({ limit }: { limit: Limit }) {
 
 const GB = 1024 ** 3;
 
+const cpuDot = (tempC: number, throttled: boolean | null) => (throttled || tempC >= 75 ? 'pw-dot pw-dot-warn' : null);
+const diskDot = (usedPct: number) => (usedPct >= 95 ? 'pw-dot pw-dot-neg' : usedPct >= 80 ? 'pw-dot pw-dot-warn' : null);
+
+function Reading({ dot, label, value }: { dot: string | null; label: string; value: string }) {
+  return (
+    <span className="pw-health-item">
+      {dot && <span className={dot} />}
+      {label} <b>{value}</b>
+    </span>
+  );
+}
+
 export function HealthStrip({ health, heartbeatAgeMs }: { health: Health; heartbeatAgeMs: number }) {
   const beatOk = heartbeatAgeMs <= 15_000;
   return (
@@ -118,17 +130,9 @@ export function HealthStrip({ health, heartbeatAgeMs }: { health: Health; heartb
         broker <b>{health.brokerConnected ? 'connected' : 'disconnected'}</b>
       </span>
       {health.cpuTempC !== null && (
-        <span className="pw-health-item">
-          {health.throttled && <span className="pw-dot pw-dot-warn" />}
-          cpu <b>{health.cpuTempC.toFixed(1)}°C</b>
-          {health.throttled && <b>throttled</b>}
-        </span>
+        <Reading dot={cpuDot(health.cpuTempC, health.throttled)} label="cpu" value={`${health.cpuTempC.toFixed(1)}°C${health.throttled ? ' throttled' : ''}`} />
       )}
-      {health.diskUsedPct !== null && (
-        <span className="pw-health-item">
-          disk <b>{pct(health.diskUsedPct)}</b>
-        </span>
-      )}
+      {health.diskUsedPct !== null && <Reading dot={diskDot(health.diskUsedPct)} label="disk" value={pct(health.diskUsedPct)} />}
       <span className="pw-health-item">
         mem <b>{`${(health.memUsedBytes / GB).toFixed(1)} / ${(health.memTotalBytes / GB).toFixed(1)} GB`}</b>
       </span>

@@ -69,7 +69,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
           )}
         </div>
       </main>
-      {pausing && <PauseAllSheet onClose={closePauseAll} />}
+      {pausing && <PauseAllSheet snapshot={feed?.snapshot ?? null} onClose={closePauseAll} />}
     </div>
   );
 }
