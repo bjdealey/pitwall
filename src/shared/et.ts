@@ -15,6 +15,7 @@ export function et(at: Date) {
   return {
     date: `${p.year}-${p.month}-${p.day}`,
     minutes: Number(p.hour) * 60 + Number(p.minute),
+    weekday: String(p.weekday),
     weekend: p.weekday === 'Sat' || p.weekday === 'Sun',
     offset: p.timeZoneName === 'GMT' ? '+00:00' : String(p.timeZoneName).slice(3),
   };
