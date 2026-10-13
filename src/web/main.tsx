@@ -8,8 +8,9 @@ import './tokens.css';
 import './pitwall.css';
 import { Activity, ArrowLeftRight, Briefcase, House, Layers, OctagonX } from 'lucide-react';
 import { StrictMode, useCallback, useEffect, useState, type FormEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { MarketChip, ModeBanner, PasscodeInput, StaleChip } from './components.tsx';
+import { MarketChip, ModeBanner, PasscodeInput, Pulse, StaleChip } from './components.tsx';
 import { duration } from '../shared/format.ts';
 import { freshness, postJson, useNow, useSnapshot, type Feed } from './data.ts';
 import { Events, Orders, Overview, PauseAllSheet, Positions, Strategies } from './screens.tsx';
@@ -25,7 +26,11 @@ const ROUTES = [
 function useRoute() {
   const [hash, setHash] = useState(location.hash);
   useEffect(() => {
-    const onChange = () => setHash(location.hash);
+    const onChange = () => {
+      const update = () => flushSync(() => setHash(location.hash));
+      if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return update();
+      document.startViewTransition(update);
+    };
     addEventListener('hashchange', onChange);
     return () => removeEventListener('hashchange', onChange);
   }, []);
@@ -39,7 +44,7 @@ function RailStatus({ feed, stale, heartbeatAgeMs }: { feed: Feed | null; stale:
     <dl className="pw-rail-status pw-figure-sm">
       <div>
         <dt>
-          <span className={`pw-dot ${stale ? 'pw-dot-warn' : 'pw-dot-pos'}`} />
+          <Pulse beat={feed.snapshot.heartbeatAt} live={!stale} />
           Engine
         </dt>
         <dd>{Number.isFinite(heartbeatAgeMs) ? `${duration(heartbeatAgeMs / 1000)} ago` : 'no heartbeat'}</dd>
@@ -77,6 +82,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         <nav className="pw-rail-nav" aria-label="Screens">
           {ROUTES.map(({ hash, label, Icon }) => (
             <a key={hash} href={hash} className="pw-rail-item pw-label" aria-current={hash === route.hash ? 'page' : undefined}>
+              {hash === route.hash && <span className="pw-rail-pill" aria-hidden />}
               <Icon className="pw-icon" aria-hidden />
               {label}
             </a>
@@ -107,6 +113,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
       <nav className="pw-tabbar" aria-label="Screens">
         {ROUTES.map(({ hash, short, Icon }) => (
           <a key={hash} href={hash} className="pw-tab pw-figure-sm" aria-current={hash === route.hash ? 'page' : undefined}>
+            {hash === route.hash && <span className="pw-tab-pill" aria-hidden />}
             <Icon className="pw-icon" aria-hidden />
             {short}
           </a>

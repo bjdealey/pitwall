@@ -1,5 +1,5 @@
 import { Clock, OctagonX } from 'lucide-react';
-import { useEffect, useId, useRef, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { EventRecord, Health, Limit, MarketSession, Mode, Severity, Strategy, StrategyState } from '../shared/domain.ts';
 import { et } from '../shared/et.ts';
@@ -142,14 +142,24 @@ const GB = 1024 ** 3;
 
 const Dot = ({ kind }: { kind: 'pos' | 'warn' | 'neg' | null }) => (kind ? <span className={`pw-dot pw-dot-${kind}`} /> : null);
 
-export function HealthFigures({ health, heartbeatAgeMs }: { health: Health; heartbeatAgeMs: number }) {
+/** The engine status dot. Each new heartbeat remounts the ring, so it pulses exactly when the engine reports in and stops when data goes stale. */
+export function Pulse({ beat, live }: { beat: string | null; live: boolean }) {
+  return (
+    <span className="pw-pulse">
+      <span className={`pw-dot ${live ? 'pw-dot-pos' : 'pw-dot-warn'}`} />
+      {live && beat && <span key={beat} className="pw-pulse-ring" aria-hidden />}
+    </span>
+  );
+}
+
+export function HealthFigures({ health, heartbeatAt, heartbeatAgeMs }: { health: Health; heartbeatAt: string | null; heartbeatAgeMs: number }) {
   const cpu = health.cpuTempC;
   const disk = health.diskUsedPct;
   const rows: Figure[] = [
     {
       label: (
         <>
-          <Dot kind={heartbeatAgeMs <= 15_000 ? 'pos' : 'warn'} />
+          <Pulse beat={heartbeatAt} live={heartbeatAgeMs <= 15_000} />
           Engine heartbeat
         </>
       ),
@@ -195,12 +205,17 @@ const STRATEGY_TAG: Record<StrategyState['kind'], string> = { running: 'pw-tag-r
 
 export function StrategyRow({ strategy, busy, onToggle }: { strategy: Strategy; busy: boolean; onToggle: () => void }) {
   const { id, symbol, state, todayPl, fillsToday } = strategy;
+  const firstKind = useRef(state.kind);
+  const changed = firstKind.current !== state.kind;
   return (
     <div className="pw-strat">
+      {changed && <span key={state.kind} className={`pw-strat-flash pw-strat-flash-${state.kind}`} aria-hidden />}
       <div className="pw-strat-main">
         <div className="pw-strat-title">
           <span className="pw-strat-name pw-figure">{id}</span>
-          <span className={`pw-tag pw-figure-sm ${STRATEGY_TAG[state.kind]}`}>{state.kind}</span>
+          <span key={state.kind} className={`pw-tag pw-figure-sm ${STRATEGY_TAG[state.kind]} ${changed ? 'pw-tag-enter' : ''}`}>
+            {state.kind}
+          </span>
         </div>
         <div className="pw-strat-meta pw-figure-sm">
           <span>{symbol}</span>
@@ -237,10 +252,10 @@ export function collapseEvents(events: EventRecord[]): EventGroup[] {
 
 const SEVERITY_TAG: Record<Severity, string> = { info: 'pw-tag-quiet', warn: 'pw-tag-warn', error: 'pw-tag-halt', halt: 'pw-tag-halt' };
 
-export function EventRow({ group }: { group: EventGroup }) {
+export function EventRow({ group, fresh = false }: { group: EventGroup; fresh?: boolean }) {
   const { latest, earliest, count } = group;
   return (
-    <div className="pw-event">
+    <div className={`pw-event ${fresh ? 'pw-event-new' : ''}`}>
       <span className="pw-event-time pw-figure-sm">{localClock(latest.at)}</span>
       <span className={`pw-tag pw-figure-sm ${SEVERITY_TAG[latest.severity]}`}>{latest.severity}</span>
       <span className="pw-event-msg pw-body">{latest.message}</span>
@@ -250,6 +265,12 @@ export function EventRow({ group }: { group: EventGroup }) {
       </span>
     </div>
   );
+}
+
+/** Events newer than the newest one on screen when this list first rendered. Only those animate in. */
+export function useArrivals(events: EventRecord[]) {
+  const [baseline] = useState(() => events.reduce((max, e) => Math.max(max, e.id), 0));
+  return (e: EventRecord) => e.id > baseline;
 }
 
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
@@ -340,19 +361,23 @@ const HOLD_MS = 2_000;
 export function HoldToFlatten({ onComplete }: { onComplete: () => void }) {
   const button = useRef<HTMLButtonElement>(null);
   const frame = useRef(0);
+  const [holding, setHolding] = useState(false);
   const setHold = (p: number) => button.current?.style.setProperty('--hold', String(p));
   const cancel = () => {
     cancelAnimationFrame(frame.current);
+    setHolding(false);
     setHold(0);
   };
   const start = () => {
     cancelAnimationFrame(frame.current);
+    setHolding(true);
     const startedAt = performance.now();
     const step = (t: number) => {
       const progress = Math.min(1, (t - startedAt) / HOLD_MS);
       setHold(progress);
       if (progress < 1) frame.current = requestAnimationFrame(step);
       else {
+        setHolding(false);
         setHold(0);
         onComplete();
       }
@@ -364,7 +389,7 @@ export function HoldToFlatten({ onComplete }: { onComplete: () => void }) {
     <button
       ref={button}
       type="button"
-      className="pw-btn pw-btn-danger pw-btn-block"
+      className={`pw-btn pw-btn-danger pw-btn-block ${holding ? 'pw-holding' : ''}`}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -384,7 +409,7 @@ export function HoldToFlatten({ onComplete }: { onComplete: () => void }) {
     >
       <span className="pw-hold" aria-hidden />
       <OctagonX className="pw-icon" aria-hidden />
-      <span>Hold to flatten</span>
+      <span>{holding ? 'Keep holding…' : 'Hold to flatten'}</span>
     </button>
   );
 }

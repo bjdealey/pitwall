@@ -94,14 +94,19 @@ Every control uses `focus-ring` on `:focus-visible`: a 2px `bg` gap, then 2px so
 
 ## Motion
 
-Almost none. Prices never flash on ticks. The whole list:
+Motion reports something or it does not run. Prices never flash on ticks. The whole list:
 
-- a 150ms `surface-2` tint fade on a position row when its quantity changes (`pw-changed`)
-- a 150ms switch knob slide
-- a 200ms ConfirmSheet slide-up
-- the Flatten hold fill, which tracks the press
+- **Heartbeat pulse.** The engine status dot sends out one ring each time a heartbeat arrives, every 5s, and stops when data goes stale. This is the one authored moment: the motion is the liveness signal.
+- **Screen change.** The active rail or tab indicator slides to the new item (280ms) while the content fades and rises 6px (240ms), using View Transitions where the browser has them.
+- **Hold to flatten.** The fill tracks the 2s press, the button settles to 98.5%, the label reads "Keep holding…", and an early release eases the fill back (240ms).
+- **Pending command.** A strategy switch pulses its knob while the engine applies the command.
+- **State change.** When a strategy's state changes, its tag pops in and the row flashes its state colour once (1.4s).
+- **New event.** A newly arrived event row tints `surface-2` and settles (1.6s).
+- **Halt band.** It slides in the first time each halt is shown, not on every visit.
+- **Feedback.** Buttons press to 98%. Dialogs fade and rise (200ms). The StaleChip fades in. Figures fade to `muted` when stale (300ms).
+- **Position change.** A 150ms `surface-2` tint fade on a position row when its quantity changes.
 
-Under `prefers-reduced-motion`, all of these are off except the hold fill.
+Easing is `cubic-bezier(.16, 1, .3, 1)` for arrivals, and exits run faster than entrances. Under `prefers-reduced-motion` nothing moves: entrances become fades, the pulse becomes a glow, row tints stay, and the hold fill still tracks the press.
 
 ## States
 

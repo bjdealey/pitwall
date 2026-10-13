@@ -1,5 +1,5 @@
 import { CirclePause, OctagonAlert, Pause } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Position, Snapshot, Strategy } from '../shared/domain.ts';
 import { etClock, glyph, localClock, money, qty, signedPct, tone } from '../shared/format.ts';
 import { isOpenOrder } from '../shared/orders.ts';
@@ -19,6 +19,7 @@ import {
   SignedMoney,
   StrategyRow,
   toneClass,
+  useArrivals,
 } from './components.tsx';
 import { sendCommand } from './data.ts';
 
@@ -32,39 +33,57 @@ const PanelLink = ({ href, children }: { href: string; children: string }) => (
   </a>
 );
 
+const shownBands = new Set<string>();
+
+/** Slides in the first time a given halt or pause is shown this session, not on every visit to Overview. */
+function Band({ bandKey, tone, icon, title, detail }: { bandKey: string; tone: 'halt' | 'quiet'; icon: ReactNode; title: string; detail: string }) {
+  const [enter] = useState(() => !shownBands.has(bandKey));
+  useEffect(() => {
+    shownBands.add(bandKey);
+  }, [bandKey]);
+  const review = () => document.getElementById('strategies')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  return (
+    <div className={`pw-band ${tone === 'halt' ? 'pw-band-halt' : ''} ${enter ? 'pw-band-enter' : ''}`} role={tone === 'halt' ? 'alert' : 'status'}>
+      {icon}
+      <div className="pw-band-text">
+        <p className="pw-label pw-band-title">{title}</p>
+        <p className="pw-label pw-band-detail">{detail}</p>
+      </div>
+      <button type="button" className="pw-btn pw-btn-compact" onClick={review}>
+        Review
+      </button>
+    </div>
+  );
+}
+
 function StatusBand({ strategies }: { strategies: Strategy[] }) {
   const halted = strategies.flatMap((s) => (s.state.kind === 'halted' ? [s.state] : []));
-  const allPaused = strategies.length > 0 && strategies.every((s) => s.state.kind === 'paused');
-  const review = () => document.getElementById('strategies')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const paused = strategies.flatMap((s) => (s.state.kind === 'paused' ? [s.state.at] : []));
   const first = halted[0];
   if (first) {
+    const key = `halt:${first.at}`;
     return (
-      <div className="pw-band pw-band-halt" role="alert">
-        <OctagonAlert className="pw-icon pw-band-icon" aria-hidden />
-        <div className="pw-band-text">
-          <p className="pw-label pw-band-title">
-            {count(halted.length, 'strategy', 'strategies')} halted at {localClock(first.at)}
-          </p>
-          <p className="pw-label pw-band-detail">{first.reason} Resume each one when you are ready.</p>
-        </div>
-        <button type="button" className="pw-btn pw-btn-compact" onClick={review}>
-          Review
-        </button>
-      </div>
+      <Band
+        key={key}
+        bandKey={key}
+        tone="halt"
+        icon={<OctagonAlert className="pw-icon pw-band-icon" aria-hidden />}
+        title={`${count(halted.length, 'strategy', 'strategies')} halted at ${localClock(first.at)}`}
+        detail={`${first.reason} Resume each one when you are ready.`}
+      />
     );
   }
-  if (allPaused) {
+  if (strategies.length > 0 && paused.length === strategies.length) {
+    const key = `paused:${paused.join()}`;
     return (
-      <div className="pw-band" role="status">
-        <CirclePause className="pw-icon pw-band-icon" aria-hidden />
-        <div className="pw-band-text">
-          <p className="pw-label pw-band-title">All strategies paused</p>
-          <p className="pw-label pw-band-detail">Nothing trades until you turn a strategy back on.</p>
-        </div>
-        <button type="button" className="pw-btn pw-btn-compact" onClick={review}>
-          Review
-        </button>
-      </div>
+      <Band
+        key={key}
+        bandKey={key}
+        tone="quiet"
+        icon={<CirclePause className="pw-icon pw-band-icon" aria-hidden />}
+        title="All strategies paused"
+        detail="Nothing trades until you turn a strategy back on."
+      />
     );
   }
   return null;
@@ -77,6 +96,7 @@ export function Overview({ snapshot, stale, heartbeatAgeMs, openPauseAll }: Scre
   const changePct = account.lastEquity ? (change / account.lastEquity) * 100 : 0;
   const unrealized = positions.reduce((sum, p) => sum + p.unrealizedPl, 0);
   const latest = collapseEvents(events).slice(0, 5);
+  const arrived = useArrivals(events);
 
   return (
     <div className={`pw-overview ${stale ? 'pw-is-stale' : ''}`}>
@@ -107,7 +127,7 @@ export function Overview({ snapshot, stale, heartbeatAgeMs, openPauseAll }: Scre
         </Panel>
 
         <Panel title="Latest events" className="pw-ov-events" flush action={<PanelLink href="#/events">All events</PanelLink>}>
-          {latest.length ? latest.map((g) => <EventRow key={g.latest.id} group={g} />) : <Empty title="No events yet." />}
+          {latest.length ? latest.map((g) => <EventRow key={g.latest.id} group={g} fresh={arrived(g.latest)} />) : <Empty title="No events yet." />}
         </Panel>
       </div>
 
@@ -142,7 +162,7 @@ export function Overview({ snapshot, stale, heartbeatAgeMs, openPauseAll }: Scre
         </Panel>
 
         <Panel title="System" className="pw-ov-system">
-          <HealthFigures health={health} heartbeatAgeMs={heartbeatAgeMs} />
+          <HealthFigures health={health} heartbeatAt={snapshot.heartbeatAt} heartbeatAgeMs={heartbeatAgeMs} />
         </Panel>
       </div>
 
@@ -368,6 +388,7 @@ function ResumeSheet({ strategy, onClose, onSent }: { strategy: Strategy; onClos
 const dayLabel = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 
 export function Events({ snapshot }: ScreenProps) {
+  const arrived = useArrivals(snapshot.events);
   const days = new Map<string, typeof snapshot.events>();
   for (const e of snapshot.events) {
     const day = dayLabel.format(new Date(e.at));
@@ -387,7 +408,7 @@ export function Events({ snapshot }: ScreenProps) {
       {[...days].map(([day, events]) => (
         <Panel key={day} title={day} flush>
           {collapseEvents(events).map((g) => (
-            <EventRow key={g.latest.id} group={g} />
+            <EventRow key={g.latest.id} group={g} fresh={arrived(g.latest)} />
           ))}
         </Panel>
       ))}
