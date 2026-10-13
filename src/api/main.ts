@@ -11,6 +11,7 @@ import { apiEnvSchema, parseEnv } from '../shared/env.ts';
 import { atET } from '../shared/et.ts';
 import * as t from '../shared/schema.ts';
 import { createLockout, parsePasscodeHash, SESSION_MS, signSession, verifyPasscode, verifySession } from './auth.ts';
+import { nextFrame } from './stream.ts';
 
 const COOKIE = 'pitwall_session';
 const ENGINE_DOWN_MS = 60_000;
@@ -107,9 +108,14 @@ app.use('/api/*', async (c, next) => {
 
 app.get('/api/stream', (c) =>
   streamSSE(c, async (stream) => {
+    let last = '';
     while (!stream.aborted) {
       const snapshot = readSnapshot();
-      if (snapshot) await stream.writeSSE({ event: 'snapshot', data: JSON.stringify(snapshot) });
+      if (snapshot) {
+        const frame = nextFrame(snapshot, last);
+        last = frame.body;
+        await stream.writeSSE({ event: frame.event, data: frame.data });
+      }
       await stream.sleep(1000);
     }
   }),

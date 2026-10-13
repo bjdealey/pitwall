@@ -15,6 +15,7 @@ export function useSnapshot(onSignedOut: () => void): Feed | null {
     const open = () => {
       source = new EventSource('/api/stream');
       source.addEventListener('snapshot', (e: MessageEvent<string>) => setFeed({ snapshot: JSON.parse(e.data), receivedAt: Date.now() }));
+      source.addEventListener('tick', (e: MessageEvent<string>) => setFeed((feed) => feed && { snapshot: { ...feed.snapshot, serverTime: e.data }, receivedAt: Date.now() }));
       source.onerror = () => {
         if (source?.readyState !== EventSource.CLOSED) return;
         fetch('/api/session').then(
