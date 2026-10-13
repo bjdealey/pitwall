@@ -275,6 +275,8 @@ export function Positions({ snapshot, stale }: ScreenProps) {
   );
 }
 
+const orderTag = (status: string) => (status === 'rejected' ? 'pw-tag-halt' : isOpenOrder({ status }) ? 'pw-tag-warn' : 'pw-tag-quiet');
+
 export function Orders({ snapshot, stale }: ScreenProps) {
   const { orders } = snapshot;
   return (
@@ -308,7 +310,9 @@ export function Orders({ snapshot, stale }: ScreenProps) {
                     <td className="pw-r">{qty(o.qty)}</td>
                     <td className="pw-r pw-hide-phone">{qty(o.filledQty)}</td>
                     <td className="pw-r pw-hide-phone">{o.filledAvgPrice === null ? '' : money(o.filledAvgPrice)}</td>
-                    <td className={o.status === 'rejected' ? 'pw-down' : undefined}>{o.status.replaceAll('_', ' ')}</td>
+                    <td>
+                      <span className={`pw-tag pw-figure-sm ${orderTag(o.status)}`}>{o.status.replaceAll('_', ' ')}</span>
+                    </td>
                     <td className={`pw-hide-phone ${o.strategyId ? '' : 'pw-muted'}`}>{o.strategyId ?? 'manual'}</td>
                   </tr>
                 ))}

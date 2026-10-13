@@ -226,7 +226,7 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-empty { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-6) var(--space-4); text-align: center; }
 .pw-empty > :first-child { color: var(--fg); }
 
-.pw-is-stale .pw-table td, .pw-is-stale .pw-table td * { color: var(--muted); }
+.pw-is-stale .pw-table td, .pw-is-stale .pw-table td *, .pw-is-stale .pw-ov-account dd, .pw-is-stale .pw-ov-limits .pw-meter-pct { color: var(--muted); }
 .pw-stat-value { color: var(--fg); }
 
 .pw-modal { position: fixed; inset: 0; z-index: 10; justify-content: center; align-items: center; padding: var(--space-4); }
@@ -266,7 +266,10 @@ button:disabled { cursor: default; opacity: .6; }
   .pw-main { padding: var(--space-4); }
   .pw-tabbar { display: grid; height: auto; min-height: var(--tabbar-h); padding-bottom: env(safe-area-inset-bottom); }
   .pw-tab .pw-icon { width: 20px; height: 20px; }
-  .pw-hide-phone { display: none; }
+  .pw-hide-phone, .pw-strat-when { display: none; }
+  .pw-strat { grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--space-3); row-gap: var(--space-1); }
+  .pw-strat > .pw-delta { grid-column: 1; grid-row: 2; justify-self: start; }
+  .pw-strat > .pw-switch-hit { grid-column: 2; grid-row: 1 / span 2; }
   .pw-figure-hero { font-size: 36px; line-height: 40px; }
   .pw-chart-plot, .pw-chart-empty { height: 128px; }
   .pw-event { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }

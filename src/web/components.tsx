@@ -105,7 +105,7 @@ export function EquityChart({ points, baseline, stale }: { points: { at: string;
     <figure className={`pw-chart ${toneClass[stale ? 'flat' : tone(last.equity - baseline)]}`}>
       <div className="pw-chart-plot">
         <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none" aria-hidden>
-          {Math.max(...values) > Math.min(...values) && <polygon className="pw-chart-area" points={`0,${CHART_H} ${line} ${CHART_W},${CHART_H}`} />}
+          {Math.max(...values) > Math.min(...values) && <polygon className="pw-chart-area" points={`0,${baseY} ${line} ${CHART_W},${baseY}`} />}
           <line className="pw-chart-base" x1={0} x2={CHART_W} y1={baseY} y2={baseY} />
           <polyline className="pw-chart-line" points={line} />
         </svg>
@@ -222,8 +222,8 @@ export function StrategyRow({ strategy, busy, onToggle }: { strategy: Strategy; 
           <span>
             {fillsToday} {fillsToday === 1 ? 'fill' : 'fills'} today
           </span>
-          {state.kind === 'paused' && <span>paused by you {localClock(state.at)}</span>}
-          {state.kind === 'halted' && <span>halted {localClock(state.at)}</span>}
+          {state.kind === 'paused' && <span className="pw-strat-when">paused by you {localClock(state.at)}</span>}
+          {state.kind === 'halted' && <span className="pw-strat-when">halted {localClock(state.at)}</span>}
         </div>
         {state.kind === 'halted' && <p className="pw-strat-reason pw-label">{state.reason}</p>}
       </div>
@@ -320,12 +320,15 @@ export function ConfirmSheet(props: {
   const { title, confirmLabel, confirmClass, busy, error, onConfirm, onCancel, children } = props;
   const titleId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+  // Parents re-render every second with a fresh onCancel; focusing and binding once keeps focus where the user put it.
   useEffect(() => {
     cancelRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onCancel();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onCancelRef.current();
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  }, []);
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!busy) onConfirm();

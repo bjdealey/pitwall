@@ -14,7 +14,8 @@ test('delta carries sign, percent and glyph, and zero has none', () => {
   assert.equal(delta(-96.1, -0.21), '−$96.10 −0.21% ▼');
   assert.equal(delta(0, 0), '$0.00');
   assert.equal(delta(0.004, 0.00001), '$0.00');
-  assert.equal(delta(0.01, 0.00002), '+$0.01 +0.00% ▲');
+  assert.equal(delta(0.01, 0.00002), '+$0.01 <0.01% ▲');
+  assert.equal(delta(-1.3, -0.0026), '−$1.30 <0.01% ▼');
 });
 
 test('signed figures never use a hyphen', () => {

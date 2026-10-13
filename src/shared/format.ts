@@ -24,10 +24,13 @@ const percentAlwaysSigned = formatter({ minimumFractionDigits: 2, maximumFractio
 export const pct = (n: number) => `${percentNumber(n)}%`;
 export const signedPct = (n: number) => (tone(n) === 'flat' ? pct(0) : `${percentAlwaysSigned(n)}%`);
 
+// A real change too small for two decimals reads "<0.01%", never a signed zero that looks like no change.
+const changePercent = (p: number) => (Math.round(p * 100) === 0 ? '<0.01%' : `${percentAlwaysSigned(p)}%`);
+
 export function delta(change: number, changePct: number): string {
   const t = tone(change);
   if (t === 'flat') return money(0);
-  return `${signedMoney(change)} ${percentAlwaysSigned(changePct)}% ${glyph(t)}`;
+  return `${signedMoney(change)} ${changePercent(changePct)} ${glyph(t)}`;
 }
 
 export function duration(seconds: number): string {
