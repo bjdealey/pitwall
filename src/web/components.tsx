@@ -437,13 +437,19 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
 
 export function PasscodeInput({ value, onChange, error, help }: { value: string; onChange: (v: string) => void; error: string | null; help: string }) {
   const id = useId();
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (error) input.current?.focus();
+  }, [error]);
   return (
     <div className="pw-field">
       <label htmlFor={id} className="pw-label">
         Passcode
       </label>
       <input
+        ref={input}
         id={id}
+        name="passcode"
         className="pw-input pw-board"
         type="password"
         inputMode="numeric"
@@ -453,7 +459,7 @@ export function PasscodeInput({ value, onChange, error, help }: { value: string;
         aria-invalid={error ? true : undefined}
         aria-describedby={`${id}-help`}
       />
-      <span id={`${id}-help`} className={`pw-help pw-label ${error ? 'pw-help-error' : ''}`}>
+      <span id={`${id}-help`} className={`pw-help pw-label ${error ? 'pw-help-error' : ''}`} aria-live="polite">
         {error ?? help}
       </span>
     </div>
@@ -564,6 +570,7 @@ export function HoldToFlatten({ onComplete }: { onComplete: () => void }) {
       }}
       onPointerUp={cancel}
       onPointerCancel={cancel}
+      onClick={(e) => e.detail === 0 && onComplete()}
       onKeyDown={(e) => {
         if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
           e.preventDefault();
