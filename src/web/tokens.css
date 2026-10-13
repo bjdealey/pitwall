@@ -1,84 +1,102 @@
 /* Generated from design/tokens.json by `npm run tokens`. Do not edit. */
 
 :root, [data-theme="dark"] {
-  --bg: #0d0f12;
-  --surface: #15181d;
-  --surface-2: #1d2127;
-  --border: #2a2f37;
-  --control: #646d7a;
-  --fg: #e7eaee;
-  --muted: #9ba4b0;
-  --accent: #7aa7ff;
-  --on-accent: #0d0f12;
-  --pos: #96f2be;
-  --pos-soft: #13271d;
-  --neg: #ff5a5f;
-  --neg-soft: #2e1618;
-  --on-neg: #1a0607;
-  --warn: #f2b84b;
-  --warn-soft: #2e2412;
-  --live: #f5a524;
-  --on-live: #1b1203;
-  --paper: #1c2a44;
-  --on-paper: #b8cdfa;
-  --scrim: #000000a6;
-  --shadow-sheet: 0 -8px 24px #000000b3;
-  --focus-ring: 0 0 0 2px #0d0f12, 0 0 0 4px #7aa7ff;
+  --bg: #1a1c1f;
+  --surface: #000000;
+  --surface-2: #0d0e10;
+  --border: #2c2f34;
+  --control: #6b7178;
+  --fg: #f4f4f1;
+  --muted: #9a9fa6;
+  --accent: #f4f4f1;
+  --on-accent: #000000;
+  --pos: #7dffa6;
+  --pos-soft: #0d2a18;
+  --neg: #ff5040;
+  --neg-soft: #2e0f0c;
+  --on-neg: #ffffff;
+  --warn: #ffd500;
+  --warn-soft: #2b2500;
+  --best: #b98aff;
+  --flag-green: #00b140;
+  --flag-yellow: #ffd500;
+  --flag-red: #e10600;
+  --on-flag: #000000;
+  --on-flag-red: #ffffff;
+  --live: #f4f4f1;
+  --on-live: #000000;
+  --paper: #2c2f34;
+  --on-paper: #c9ccd0;
+  --scrim: #000000b3;
+  --shadow-sheet: 0 16px 48px #000000cc;
+  --focus-ring: 0 0 0 2px #000000, 0 0 0 4px #f4f4f1;
   color-scheme: dark;
 }
 
 [data-theme="light"] {
-  --bg: #f3f4f6;
+  --bg: #e9e8e3;
   --surface: #ffffff;
-  --surface-2: #eceef2;
-  --border: #dde1e7;
-  --control: #7a838f;
-  --fg: #15181d;
-  --muted: #59626e;
-  --accent: #1f5fd6;
+  --surface-2: #f5f4f0;
+  --border: #d4d1c9;
+  --control: #767a80;
+  --fg: #000000;
+  --muted: #5a5e64;
+  --accent: #000000;
   --on-accent: #ffffff;
   --pos: #063d1d;
-  --pos-soft: #e6f5ec;
-  --neg: #cf2236;
-  --neg-soft: #fdf0f1;
+  --pos-soft: #e3f1e8;
+  --neg: #c40500;
+  --neg-soft: #fbe6e4;
   --on-neg: #ffffff;
-  --warn: #8a5300;
-  --warn-soft: #fbefd6;
-  --live: #f5a524;
-  --on-live: #1b1203;
-  --paper: #dde8fb;
-  --on-paper: #1a3f86;
-  --scrim: #15181d66;
-  --shadow-sheet: 0 -8px 24px #15181d26;
-  --focus-ring: 0 0 0 2px #f3f4f6, 0 0 0 4px #1f5fd6;
+  --warn: #7a6000;
+  --warn-soft: #fbf3cc;
+  --best: #7a2fd6;
+  --flag-green: #00a03a;
+  --flag-yellow: #ffd500;
+  --flag-red: #e10600;
+  --on-flag: #000000;
+  --on-flag-red: #ffffff;
+  --live: #000000;
+  --on-live: #ffffff;
+  --paper: #d4d1c9;
+  --on-paper: #2b2d31;
+  --scrim: #00000066;
+  --shadow-sheet: 0 16px 48px #0000002e;
+  --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px #000000;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
-    --bg: #f3f4f6;
+    --bg: #e9e8e3;
     --surface: #ffffff;
-    --surface-2: #eceef2;
-    --border: #dde1e7;
-    --control: #7a838f;
-    --fg: #15181d;
-    --muted: #59626e;
-    --accent: #1f5fd6;
+    --surface-2: #f5f4f0;
+    --border: #d4d1c9;
+    --control: #767a80;
+    --fg: #000000;
+    --muted: #5a5e64;
+    --accent: #000000;
     --on-accent: #ffffff;
     --pos: #063d1d;
-    --pos-soft: #e6f5ec;
-    --neg: #cf2236;
-    --neg-soft: #fdf0f1;
+    --pos-soft: #e3f1e8;
+    --neg: #c40500;
+    --neg-soft: #fbe6e4;
     --on-neg: #ffffff;
-    --warn: #8a5300;
-    --warn-soft: #fbefd6;
-    --live: #f5a524;
-    --on-live: #1b1203;
-    --paper: #dde8fb;
-    --on-paper: #1a3f86;
-    --scrim: #15181d66;
-    --shadow-sheet: 0 -8px 24px #15181d26;
-    --focus-ring: 0 0 0 2px #f3f4f6, 0 0 0 4px #1f5fd6;
+    --warn: #7a6000;
+    --warn-soft: #fbf3cc;
+    --best: #7a2fd6;
+    --flag-green: #00a03a;
+    --flag-yellow: #ffd500;
+    --flag-red: #e10600;
+    --on-flag: #000000;
+    --on-flag-red: #ffffff;
+    --live: #000000;
+    --on-live: #ffffff;
+    --paper: #d4d1c9;
+    --on-paper: #2b2d31;
+    --scrim: #00000066;
+    --shadow-sheet: 0 16px 48px #0000002e;
+    --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px #000000;
     color-scheme: light;
   }
 }
@@ -89,36 +107,34 @@
   --space-3: 12px;
   --space-4: 16px;
   --space-6: 24px;
-  --radius-sm: 4px;
-  --radius-md: 8px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
   --radius-full: 9999px;
   --tap-min: 44px;
-  --row-h: 40px;
-  --header-h: 48px;
-  --tabbar-h: 56px;
+  --row-h: 44px;
   --banner-h: 24px;
-  --chip-h: 24px;
-  --rail-w: 224px;
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --track-h: 44px;
+  --header-h: 56px;
+  --tabbar-h: 60px;
+  --tower-w: 360px;
+  --chip-h: 28px;
+  --font-sans: 'Archivo Variable', 'Archivo', system-ui, sans-serif;
 }
 
-.pw-title { font-family: var(--font-sans); font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -0.01em; }
+.pw-hero { font-family: var(--font-sans); font-size: 72px; line-height: 64px; font-weight: 800; font-stretch: 75%; letter-spacing: -0.01em; }
 
-.pw-body { font-family: var(--font-sans); font-size: 15px; line-height: 22px; font-weight: 400; }
+.pw-board { font-family: var(--font-sans); font-size: 36px; line-height: 40px; font-weight: 700; font-stretch: 75%; }
 
-.pw-label { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 500; }
+.pw-wordmark { font-family: var(--font-sans); font-size: 18px; line-height: 20px; font-weight: 800; font-stretch: 125%; letter-spacing: 0.04em; }
 
-.pw-caption { font-family: var(--font-sans); font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; }
+.pw-title { font-family: var(--font-sans); font-size: 21px; line-height: 28px; font-weight: 700; font-stretch: 87.5%; }
 
-.pw-figure-hero { font-family: var(--font-mono); font-size: 48px; line-height: 52px; font-weight: 500; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.pw-timing { font-family: var(--font-sans); font-size: 16px; line-height: 20px; font-weight: 600; font-stretch: 75%; }
 
-.pw-figure-xl { font-family: var(--font-mono); font-size: 36px; line-height: 40px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.pw-body { font-family: var(--font-sans); font-size: 16px; line-height: 24px; font-weight: 400; }
 
-.pw-figure-lg { font-family: var(--font-mono); font-size: 22px; line-height: 28px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.pw-label { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 500; }
 
-.pw-figure { font-family: var(--font-mono); font-size: 14px; line-height: 20px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.pw-figure { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 600; font-stretch: 87.5%; }
 
-.pw-figure-sm { font-family: var(--font-mono); font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
-
-.pw-wordmark { font-family: var(--font-mono); font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: 0.24em; font-variant-numeric: tabular-nums; }
+.pw-small { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 500; }

@@ -10,7 +10,7 @@ const tokensSchema = z.object({
     groups: z.array(
       z.object({
         family: z.string(),
-        styles: z.array(z.object({ name: z.string(), fontSize: z.string(), lineHeight: z.string(), fontWeight: z.number(), letterSpacing: z.string().optional() })),
+        styles: z.array(z.object({ name: z.string(), fontSize: z.string(), lineHeight: z.string(), fontWeight: z.number(), fontStretch: z.string().optional(), letterSpacing: z.string().optional() })),
       }),
     ),
   }),
@@ -46,8 +46,8 @@ const typeClasses = tokens.type.groups.flatMap((group) =>
       `font-size: ${s.fontSize}`,
       `line-height: ${s.lineHeight}`,
       `font-weight: ${s.fontWeight}`,
+      ...(s.fontStretch ? [`font-stretch: ${s.fontStretch}`] : []),
       ...(s.letterSpacing ? [`letter-spacing: ${s.letterSpacing}`] : []),
-      ...(group.family === 'mono' ? ['font-variant-numeric: tabular-nums'] : []),
     ];
     return `.pw-${s.name} { ${props.join('; ')}; }`;
   }),

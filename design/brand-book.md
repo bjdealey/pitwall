@@ -1,20 +1,24 @@
-Pitwall is the monitor and emergency brake for a personal trading bot running on a Raspberry Pi at home. You open it on your phone over Tailscale. In one glance it must answer three questions: is the bot healthy, what does it hold, and how much is it up or down today. In two taps it must let you stop the bot. It is an instrument, not a trading app. It uses calm graphite surfaces, and color appears only when it means something.
+Pitwall is the monitor and emergency brake for a personal trading bot running on a Raspberry Pi at home. Its world is an F1 pit wall: engineers on the gantry reading live timing screens, a pit board held over the wall, and a flag that tells the whole track how the session is going. In one glance it answers three questions: is the bot healthy, what does it hold, and how much is it up or down today. In two taps it stops the bot.
 
 ## Principles
 
-1. **Color means something or it is absent.** Neutrals carry the layout. `pos`, `neg`, `warn`, `live` and `paper` each have one meaning. `accent` is for focus and navigation, never data.
-2. **Mode is never ambiguous.** The ModeBanner (PAPER or LIVE) sits above the header on every screen, the sign-in screen included.
-3. **Old data says it is old.** When the stream drops, the StaleChip appears and figures go `muted`. A number on screen is current or labeled stale.
-4. **Stopping is easy; flattening is deliberate.** Pause all is one tap plus a confirm, from any screen. Flatten is a 2 s hold plus the passcode, on Overview only.
-5. **Numbers line up.** Every figure is set in Plex Mono with tabular digits.
+1. **The flag says how the session is going.** One track band under the mode strip carries the session state. It is quiet when all is well. It turns yellow when something is paused or the data is stale, and red when the engine halted. Trouble is loud. Calm is not.
+2. **Colour is a flag or a figure, nothing else.** Asphalt and black screens carry the layout. Green, yellow and red are flags and gains or losses. Sector purple marks the best of the session and nothing more. Navigation and focus are timing white, never a flag colour.
+3. **Mode is never ambiguous.** The mode strip sits above everything, the sign-in screen included. PAPER is a quiet grey strip. LIVE is an inverted strip that cannot be mistaken for a flag.
+4. **Old data says it is old.** When the stream drops or the heartbeat is late, the band goes yellow with the age, and the figures fade to `muted`. Controls stay live.
+5. **Stopping is easy; flattening is deliberate.** Stop sits in the gantry on every screen. Flatten is a 2-second hold plus the passcode, at the foot of the timing tower.
 
 ## Content
 
-**Voice.** Terse and factual, like an operator's log. Sentence case for prose. UPPERCASE only for state words: RUNNING, PAUSED, HALTED, OPEN, PRE, AFTER, CLOSED, STALE, PAPER, LIVE. No exclamation marks, no emoji, no celebrating gains or consoling losses.
+**Voice.** Terse and factual, like a race engineer on the radio. Sentence case for every heading, label and button. Capitals only for status values, the way a timing screen prints PIT or OUT: RUNNING, PAUSED, HALTED, INFO, WARN, ERROR, HALT, and order sides and statuses. No eyebrow labels above headings. No exclamation marks, no emoji, no celebrating gains or consoling losses.
+
+**The theme lives in the visuals, not the words.** The band shows a flag; its text says "2 strategies halted at 04:00.", not "Red flag". Screens are named for what they show: Overview, Positions, Orders & fills, Strategies, Events.
 
 **Say the cause and the effect.** Write "Daily loss limit reached (−2.00%). All strategies paused.", not "Something went wrong." Engine halt reasons appear verbatim.
 
-**Buttons are verbs that name the effect**: "Pause all", "Hold to flatten", "Resume sma-cross-spy", "Cancel". Confirm titles ask with the same verb: "Pause all strategies?" Never "Are you sure?" and never "OK".
+**Buttons are verbs that name the effect**: "Pause all", "Hold to flatten", "Resume", "Review strategies", "Cancel". Confirm titles ask with the same verb: "Pause all strategies?" Never "Are you sure?" and never "OK".
+
+**Lists, not dot-strings.** Related facts sit in their own cells with space between them, never joined with middle dots.
 
 **Numbers.**
 
@@ -22,114 +26,108 @@ Pitwall is the monitor and emergency brake for a personal trading bot running on
 | --- | --- | --- |
 | Money | `$`, thousands commas, 2 decimals | `$48,213.07` |
 | Change | sign, value, percent, glyph | `+$412.08 +0.86% ▲`, `−$96.10 −0.21% ▼` |
+| Tiny change | under 0.01% reads `<0.01%`, never a signed zero | `−$1.30 <0.01% ▼` |
 | Percent | 2 decimals | `21.40%` |
 | Quantity | up to 4 decimals, trailing zeros trimmed | `25`, `0.5`, `0.0125` |
 | Zero change | no sign, no glyph, `muted` | `$0.00` |
 | Negative | true minus U+2212, never a hyphen or parentheses | `−2.00%` |
 
-**Time.** Market times are always ET and labeled: `opens 09:30 ET`. The event log uses local 24-hour time, `14:32:07`, grouped by date. Durations: `42s`, `3m`, `2h 10m`, `12d`.
+**Time.** Market times are always ET and labelled: `opens 09:30 ET`. The event log uses local 24-hour time, `14:32:07`, grouped by date. Durations: `42s`, `3m`, `2h 10m`, `12d`.
 
-**Strategy IDs** appear exactly as in the engine config, kebab-case, in mono: `sma-cross-spy`.
+**Strategy IDs** appear exactly as in the engine config, kebab-case, in the condensed `timing` style: `sma-cross-spy`.
 
-**Empty states** are one `muted` `body` sentence with no illustration: "No open positions." "No events today."
+**Empty states** say what will fill them: "No open positions. Strategies open them on their next signal while the market is open."
 
-## Color
+## Colour
 
-The dark theme comes first and is the default. The light theme is for daylight. Follow `prefers-color-scheme` and allow a manual override in Settings.
+There are two themes. **Timing screen** (dark, the default) is an LED gantry: asphalt page, true-black screens, timing-white type. **Timing sheet** (light) is the printed FIA classification: paper-grey page, white screens, black ink. Follow `prefers-color-scheme`.
 
-- **Ground:** `bg` for the page, `surface` for cards, tables, the header, the tab bar and sheets, `surface-2` for hover, meter tracks and quiet tags.
-- **Edges:** `border` for hairlines. `control` for anything you operate (inputs, switches, secondary buttons). `control` holds 3:1 on every ground in both themes, and `border` is never a control's only edge.
-- **Text:** `fg` for primary text and figures. `muted` for labels, units, timestamps and stale figures. Both pass 4.5:1 on `bg`, `surface` and `surface-2` in both themes.
-- **Direction:** `pos` for gains, `neg` for losses. They are green and red, and they also differ in lightness by 2.3:1 in both themes, so they stay distinct without hue. A figure in `pos` or `neg` always carries its sign and ▲ or ▼. `pos-soft` and `neg-soft` are tag grounds only.
-- **Attention:** `warn` for STALE, WARN events and meters past 75%, on `warn-soft` for chips and tags.
-- **Danger fills:** Pause all is a `neg` outline. Flatten is a `neg` fill with `on-neg` text.
-- **Money mode:** `live` with `on-live` and `paper` with `on-paper` belong to the ModeBanner alone. LIVE is loud amber in both themes on purpose.
-- **Navigation and focus:** `accent` (with `on-accent` on a fill) for the focus ring, links and the active-tab bar.
-- **Overlay:** `scrim` behind the ConfirmSheet.
+- **Ground.** `bg` is asphalt, the page and the gaps between pit-board slats. `surface` is every screen. `surface-2` is the alternate tower row and table row.
+- **Edges.** `border` is the bezel inside and around screens. `control` edges anything you operate, at 3:1 or better.
+- **Text.** `fg` for primary text and figures, `muted` for units, times, symbols and sources. Both pass 4.5:1 on every ground in both themes.
+- **Direction.** `pos` for gains and RUNNING, `neg` for losses and errors. On the timing screen the gain green is 2.6× lighter than the loss red, so the pair holds without hue. Every figure in either colour carries its sign and ▲ or ▼.
+- **Flags.** `flag-yellow` and `flag-red` fill the track band, with `on-flag` and `on-flag-red` text. `flag-green` is only ever the flag icon on a calm band. `flag-red` also fills Hold to flatten and the HALTED chip.
+- **Sector purple.** `best` marks the day's equity high on the board and trace, and the leading strategy's gain in the tower. Never anything else.
+- **Mode.** `paper` with `on-paper`, and `live` with `on-live`, belong to the mode strip alone.
+- **Navigation and focus.** `accent` equals `fg` on purpose: the active nav bar and the focus outline are timing white (ink on the sheet).
 
 ## Type
 
-Two families from IBM Plex: **Plex Sans** for words, **Plex Mono** for every number, ID, timestamp and state word.
+One variable family, **Archivo**, self-hosted from `@fontsource-variable/archivo` with its width axis. Its width carries the voice:
 
-- `title` for screen and sheet titles. `body` for sentences. `label` for buttons, field labels, tab labels and table symbols. `caption` for uppercase tile labels and table headers, always `muted`.
-- `figure-xl` for the one hero number per StatTile. `figure-lg` for secondary tile figures and the passcode field. `figure` for table cells and inline deltas. `figure-sm` for timestamps, chips, tags, the ModeBanner and health readouts.
-- `wordmark` for the PITWALL wordmark in the header, and nowhere else.
+- **Condensed (75%)** is timing type. `hero` (72px) is the equity figure on the pit board. `board` (36px) is today's change. `timing` (16px) is the tower and the nav.
+- **Normal width** is for sentences. `body` (16px) holds event messages and dialog copy. `label` (14px) is for buttons, field labels and screen titles. `small` (12px) holds times, symbols, sources and status values.
+- **Semi-condensed (87.5%).** `title` (21px) for the tower heading and dialogs, and `figure` (14px) for figures in lists and tables.
+- **Expanded (125%).** `wordmark` is the PITWALL wordmark, the one wide thing against all the condensed timing.
 
-The app self-hosts the woff2 files on the Pi so pages never depend on a font CDN. This system loads them from Google Fonts for its previews.
+Tabular figures are on everywhere, so columns line up without a monospace face. The scale follows the classic steps 12, 14, 16, 21, 36, 72.
 
-## Space and layout
+## Layout
 
-The base unit is 4px: `space-1` (4), `space-2` (8), `space-3` (12), `space-4` (16), `space-6` (24). There are no values in between.
+**Desktop, top to bottom:**
 
-**Phone first.** One column with `space-4` gutters. From top to bottom:
+1. The mode strip (`banner-h`).
+2. The track band (`track-h`).
+3. The gantry header (`header-h`): the wordmark, the five screens as tabs, the market chip, and Stop.
+4. The page.
 
-1. ModeBanner (`banner-h`)
-2. Header (`header-h`): the wordmark, the MarketChip, the StaleChip when stale, and the compact Stop button
-3. The screen
-4. TabBar (`tabbar-h`)
+**Overview** has two columns:
 
-Sections on a screen sit `space-6` apart.
+- **Left: the timing tower** (`tower-w`, black). It ranks strategies by today's P&L, P1 first. Each row shows its position, ID, gain and switch, then a meta line: status value, symbol, fills today. A halted row adds its reason. At the foot of the tower are Pause all and Hold to flatten, and the system readout: engine heartbeat, broker, CPU, disk, memory and uptime.
+- **Right, top: the pit board.** Three slats with asphalt between them:
+  - equity in `hero`
+  - today's change in `board`
+  - previous close and day high
+  
+  Beside the board, the day's trace sits against the previous close.
+- **Right, below:** three screens (Positions, Limits and Account), then Events.
 
-**Overview, top to bottom:**
+**Below 1100px** everything stacks: board, tower, screens, events.
 
-1. StatTiles: Equity with Sparkline, Today P&L, Open positions, Buying power
-2. LimitMeters
-3. HealthStrip
-4. Pause all
-5. Hold to flatten
+**Below 900px:**
 
-**Density.** Overview is glanceable, with one big number per tile. Positions and Orders & fills are compact DataTables at `row-h`.
+- The tabs move to a bottom tab bar (`tabbar-h`).
+- The market chip shows its state only.
+- Event rows stack: time and severity first, then the message.
 
-**Desktop (900px and up).** The TabBar becomes a left rail, tiles go 2 or 3 columns, and tables show every column.
+Anything you tap is at least `tap-min` tall.
 
-**Touch.** Anything you tap is at least `tap-min` tall.
+## Shape and depth
 
-## Shape and elevation
-
-`radius-sm` for tags and inputs. `radius-md` for cards, buttons and the sheet's top corners. `radius-full` for chips, switches, meter tracks and dots. Use borders, not shadows: a card is `surface` plus a 1px `border`. Only the ConfirmSheet floats, with `shadow-sheet` over `scrim`.
+Screens are hardware, nearly square: `radius-sm` (2px) for screens, chips and inputs, `radius-md` (4px) for buttons and dialogs, `radius-full` for switches and status lights. There are no shadows on the page. Depth is asphalt showing between black screens. Only dialogs lift, with `shadow-sheet` over `scrim`.
 
 ## Focus
 
-Every control uses `focus-ring` on `:focus-visible`: a 2px `bg` gap, then 2px solid `accent`. That is 8:1 on `bg` in dark and 5.2:1 in light.
+Every control shows a 2px `accent` outline with a 2px offset on `:focus-visible`.
 
 ## Motion
 
 Motion reports something or it does not run. Prices never flash on ticks. The whole list:
 
-- **Heartbeat pulse.** The engine status dot sends out one ring each time a heartbeat arrives, every 5s, and stops when data goes stale. This is the one authored moment: the motion is the liveness signal.
-- **Screen change.** The active rail or tab indicator slides to the new item (280ms) while the content fades and rises 6px (240ms), using View Transitions where the browser has them.
+- **Heartbeat pulse.** The engine light in the tower's system readout sends out one ring each time a heartbeat arrives, every 5s. It stops when data goes stale.
+- **Track band.** Its colour crossfades (400ms) when the session state changes.
+- **Screen change.** The active tab bar slides to the new tab (280ms) while the page fades and rises 6px (240ms), using View Transitions where the browser has them.
 - **Hold to flatten.** The fill tracks the 2s press, the button settles to 98.5%, the label reads "Keep holding…", and an early release eases the fill back (240ms).
 - **Pending command.** A strategy switch pulses its knob while the engine applies the command.
-- **State change.** When a strategy's state changes, its tag pops in and the row flashes its state colour once (1.4s).
-- **New event.** A newly arrived event row tints `surface-2` and settles (1.6s).
-- **Halt band.** It slides in the first time each halt is shown, not on every visit.
-- **Feedback.** Buttons press to 98%. Dialogs fade and rise (200ms). The StaleChip fades in. Figures fade to `muted` when stale (300ms).
-- **Position change.** A 150ms `surface-2` tint fade on a position row when its quantity changes.
+- **State change.** When a strategy's state changes, its status value pops in and its tower row flashes the state colour once (1.4s).
+- **New event.** A newly arrived event row tints and settles (1.6s).
+- **Feedback.** Buttons press to 98%. Dialogs fade and rise (200ms). Figures fade to `muted` when stale (300ms). A position row tints when its quantity changes.
 
 Easing is `cubic-bezier(.16, 1, .3, 1)` for arrivals, and exits run faster than entrances. Under `prefers-reduced-motion` nothing moves: entrances become fades, the pulse becomes a glow, row tints stay, and the hold fill still tracks the press.
 
 ## States
 
-- **Stale:** the SSE stream drops, or the last heartbeat is older than 15 s (3× the 5 s interval). The StaleChip shows the age, figures go `muted`, and Sparklines go flat. Controls stay enabled.
-- **Halted:** the engine paused itself on a limit. Overview shows the halt reason in an EventRow above the tiles. Affected StrategyRows show HALTED with the reason.
-- **Paused by you:** the StrategyRow shows PAUSED with "by you" and the time.
-- **Locked out:** after 5 wrong passcodes, the PasscodeInput says until when.
+| State | Track band | Elsewhere |
+| --- | --- | --- |
+| All running, market open | Calm band, green flag icon, "All 2 strategies running." | — |
+| Market closed, pre-market or after-hours | Calm band, chequered flag | — |
+| One or more paused by you | Yellow band, "Review strategies" | Tower rows show PAUSED and the time |
+| Stale: no snapshot for 3s, or heartbeat older than 15s | Yellow band with the age | Figures fade to `muted`; controls stay enabled |
+| Halted: the engine paused itself on a limit | Red band with the reason and "Review strategies" | Tower rows show a red HALTED chip and the reason |
+| Locked out after 5 wrong passcodes | — | The passcode field says until when |
 
 ## Iconography
 
-Use Lucide at 20px, 1.5px stroke, round caps and joins, in `currentColor`, imported from `lucide-react` in the app. Pair an icon with a word everywhere: the Stop button says "Stop" and tabs have labels.
+Lucide, from `lucide-react`, at 18px in `currentColor`, always beside a word. The tab bar uses `gauge`, `briefcase`, `arrow-left-right`, `layers` and `activity`. Stop uses `octagon-x`, Pause all uses `pause`. The flag icon in the track band is drawn in the app: a pole and a cloth, solid or chequered.
 
-| Use | Icon |
-| --- | --- |
-| Overview | `home` |
-| Positions | `briefcase` |
-| Orders | `arrow-left-right` |
-| Strategies | `layers` |
-| Events | `activity` |
-| Pause all | `pause` |
-| Stop / Flatten | `octagon-x` |
-| Stale | `clock` |
-
-The previews here inline hand-copied Lucide geometry, and a few paths may differ slightly from the current package. The package is the source.
-
-There is no logo mark. The brand is the PITWALL wordmark in `wordmark` style. The PWA home-screen icon is the letter P in Plex Mono 600, `fg` on `bg`.
+There is no logo mark. The brand is the PITWALL wordmark in `wordmark` style. The home-screen icon is the letter P in Archivo 800, expanded like the wordmark, timing white on asphalt.

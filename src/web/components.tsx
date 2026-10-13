@@ -1,33 +1,92 @@
-import { Clock, OctagonX } from 'lucide-react';
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import type { EventRecord, Health, Limit, MarketSession, Mode, Severity, Strategy, StrategyState } from '../shared/domain.ts';
+import type { Account, EventRecord, Health, Limit, MarketSession, Mode, Severity, Strategy, StrategyState } from '../shared/domain.ts';
 import { et } from '../shared/et.ts';
-import { delta, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
+import { changePercent, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
+import { sendCommand } from './data.ts';
 
 export const toneClass: Record<Tone, string> = { up: 'pw-up', down: 'pw-down', flat: 'pw-flat' };
 
-export function ModeBanner({ mode }: { mode: Mode | null }) {
-  if (!mode) return <div className="pw-mode pw-mode-neutral pw-figure-sm">Pitwall</div>;
-  return <div className={`pw-mode pw-mode-${mode} pw-figure-sm`}>{mode === 'paper' ? 'Paper' : 'Live · real money'}</div>;
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+export function ModeStrip({ mode }: { mode: Mode | null }) {
+  if (!mode) return <div className="pw-mode pw-mode-neutral pw-small">Pitwall</div>;
+  return <div className={`pw-mode pw-mode-${mode} pw-small`}>{mode === 'paper' ? 'Paper trading. No real money.' : 'Live trading with real money.'}</div>;
 }
 
-const MARKET: Record<MarketSession['state'], { dot: string; next: string }> = {
-  open: { dot: 'pw-dot pw-dot-pos', next: 'closes' },
-  pre: { dot: 'pw-dot pw-dot-ring', next: 'opens' },
-  after: { dot: 'pw-dot pw-dot-ring', next: 'ends' },
-  closed: { dot: 'pw-dot', next: 'opens' },
+export type FlagKind = 'green' | 'yellow' | 'red' | 'chequered' | 'none';
+export type TrackStatus = { kind: FlagKind; text: string; detail?: string; review?: boolean };
+
+/** The one line that says how the session is going, in flag terms a pit wall would use. */
+export function trackStatus(input: { strategies: Strategy[]; market: MarketSession; stale: boolean; heartbeatAgeMs: number } | null): TrackStatus {
+  if (!input) return { kind: 'none', text: 'Connecting to the engine.' };
+  const { strategies, market, stale, heartbeatAgeMs } = input;
+  const halted = strategies.flatMap((s) => (s.state.kind === 'halted' ? [s.state] : []));
+  const paused = strategies.filter((s) => s.state.kind === 'paused').length;
+  const first = halted[0];
+  if (first) return { kind: 'red', text: `${count(halted.length, 'strategy', 'strategies')} halted at ${localClock(first.at)}.`, detail: first.reason, review: true };
+  if (stale) {
+    const age = Number.isFinite(heartbeatAgeMs) ? `for ${duration(heartbeatAgeMs / 1000)}` : 'yet';
+    return { kind: 'yellow', text: `No engine data ${age}.`, detail: 'Figures are frozen. Stop still works.' };
+  }
+  if (strategies.length > 0 && paused === strategies.length) return { kind: 'yellow', text: 'All strategies paused.', detail: 'Nothing trades until you turn one back on.', review: true };
+  if (paused > 0) return { kind: 'yellow', text: `${paused} of ${count(strategies.length, 'strategy', 'strategies')} paused.`, review: true };
+  if (market.state === 'pre') return { kind: 'chequered', text: 'Pre-market.', detail: `Strategies wait for the open at ${etTime(market.nextChangeAt)}.` };
+  if (market.state === 'after') return { kind: 'chequered', text: 'After-hours.', detail: 'Strategies wait for the next open.' };
+  if (market.state === 'closed') return { kind: 'chequered', text: 'Market closed.', detail: 'Strategies wait for the next open.' };
+  return { kind: 'green', text: `All ${count(strategies.length, 'strategy', 'strategies')} running.` };
+}
+
+export function FlagIcon({ kind }: { kind: FlagKind }) {
+  if (kind === 'none') return null;
+  return (
+    <svg className="pw-flag" viewBox="0 0 20 20" aria-hidden>
+      <path className="pw-flag-pole" d="M4 2v16" />
+      {kind === 'chequered' ? (
+        <>
+          <path className="pw-flag-cloth-outline" d="M5 3h11v8H5z" />
+          <path className="pw-flag-check" d="M5 3h2.75v2.67H5zM10.5 3h2.75v2.67H10.5zM7.75 5.67h2.75v2.67H7.75zM13.25 5.67H16v2.67h-2.75zM5 8.33h2.75V11H5zM10.5 8.33h2.75V11H10.5z" />
+        </>
+      ) : (
+        <path className="pw-flag-cloth" d="M5 3h11v8H5z" />
+      )}
+    </svg>
+  );
+}
+
+export function TrackBand({ status }: { status: TrackStatus }) {
+  return (
+    <div className={`pw-track pw-track-${status.kind}`} role={status.kind === 'red' ? 'alert' : 'status'}>
+      <FlagIcon kind={status.kind} />
+      <p className="pw-track-text pw-label">
+        <strong>{status.text}</strong>
+        {status.detail && <span className="pw-track-detail"> {status.detail}</span>}
+      </p>
+      {status.review && (
+        <a className="pw-track-action pw-label" href="#/strategies">
+          Review strategies
+        </a>
+      )}
+    </div>
+  );
+}
+
+const MARKET: Record<MarketSession['state'], { label: string; next: string }> = {
+  open: { label: 'Open', next: 'closes' },
+  pre: { label: 'Pre-market', next: 'opens' },
+  after: { label: 'After-hours', next: 'ends' },
+  closed: { label: 'Closed', next: 'opens' },
 };
 
 export function MarketChip({ market, now }: { market: MarketSession; now: number }) {
-  const { dot, next } = MARKET[market.state];
+  const { label, next } = MARKET[market.state];
   const at = new Date(market.nextChangeAt);
   const day = et(at).date === et(new Date(now)).date ? '' : `${et(at).weekday} `;
   return (
-    <span className="pw-chip pw-figure-sm">
-      <span className={dot} />
-      {market.state.toUpperCase()}
-      <span className="pw-chip-sub">
+    <span className={`pw-market pw-market-${market.state} pw-small`}>
+      <span className="pw-light" aria-hidden />
+      <span className="pw-market-state">{label}</span>
+      <span className="pw-market-next">
         {next} {day}
         {etTime(market.nextChangeAt)}
       </span>
@@ -35,35 +94,22 @@ export function MarketChip({ market, now }: { market: MarketSession; now: number
   );
 }
 
-export function StaleChip({ ageMs }: { ageMs: number }) {
-  return (
-    <span className="pw-chip pw-stale pw-figure-sm" role="status">
-      <Clock className="pw-icon" aria-hidden />
-      STALE {Number.isFinite(ageMs) ? duration(ageMs / 1000) : ''}
-    </span>
-  );
-}
-
-export function Delta({ change, changePct, size = 'pw-figure' }: { change: number; changePct: number; size?: string }) {
-  return <span className={`pw-delta ${size} ${toneClass[tone(change)]}`}>{delta(change, changePct)}</span>;
-}
-
 export function SignedMoney({ value, className = 'pw-figure' }: { value: number; className?: string }) {
   const t = tone(value);
   return <span className={`pw-delta ${className} ${toneClass[t]}`}>{`${signedMoney(value)} ${glyph(t)}`.trim()}</span>;
 }
 
-export function Panel({ title, action, flush = false, className = '', id, children }: { title: string; action?: ReactNode; flush?: boolean; className?: string; id?: string; children: ReactNode }) {
+export function Screen({ title, aside, flush = false, className = '', id, children }: { title: string; aside?: ReactNode; flush?: boolean; className?: string; id?: string; children: ReactNode }) {
   const titleId = useId();
   return (
-    <section id={id} className={`pw-panel ${className}`} aria-labelledby={titleId}>
-      <header className="pw-panel-head">
-        <h2 id={titleId} className="pw-caption pw-panel-title">
+    <section id={id} className={`pw-screen ${className}`} aria-labelledby={titleId}>
+      <header className="pw-screen-head">
+        <h2 id={titleId} className="pw-label pw-screen-title">
           {title}
         </h2>
-        {action}
+        {aside}
       </header>
-      <div className={flush ? 'pw-panel-flush' : 'pw-panel-body'}>{children}</div>
+      <div className={flush ? 'pw-screen-flush' : 'pw-screen-body'}>{children}</div>
     </section>
   );
 }
@@ -83,14 +129,53 @@ export function Figures({ rows }: { rows: Figure[] }) {
   );
 }
 
-const CHART_W = 1000;
-const CHART_H = 160;
+const TRACE_W = 1000;
+const TRACE_H = 200;
 
-export function EquityChart({ points, baseline, stale }: { points: { at: string; equity: number }[]; baseline: number; stale: boolean }) {
+/** The pit board: equity, today's change and the session's reference points on stacked slats, beside the day's trace. */
+export function PitBoard({ account, points, stale }: { account: Account; points: { at: string; equity: number }[]; stale: boolean }) {
+  const change = account.equity - account.lastEquity;
+  const changePct = account.lastEquity ? (change / account.lastEquity) * 100 : 0;
+  const t = tone(change);
+  const high = points.reduce<{ at: string; equity: number } | null>((best, p) => (!best || p.equity > best.equity ? p : best), null);
+  return (
+    <section className="pw-board-wrap" aria-label="Equity">
+      <div className="pw-slats">
+        <div className="pw-slat pw-slat-hero">
+          <span className="pw-small pw-slat-label">Equity</span>
+          <span className="pw-hero pw-stat-value">{money(account.equity)}</span>
+        </div>
+        <div className="pw-slat pw-slat-change">
+          <span className={`pw-board pw-delta ${toneClass[t]}`}>{t === 'flat' ? money(0) : signedMoney(change)}</span>
+          <span className={`pw-label pw-delta ${toneClass[t]}`}>
+            {t === 'flat' ? pct(0) : `${changePercent(changePct)} ${glyph(t)}`} today
+          </span>
+        </div>
+        <div className="pw-slat pw-slat-pair">
+          <div>
+            <span className="pw-small pw-slat-label">Previous close</span>
+            <span className="pw-figure">{money(account.lastEquity)}</span>
+          </div>
+          <div>
+            <span className="pw-small pw-slat-label">Day high</span>
+            <span className={`pw-figure ${high && high.equity > account.lastEquity ? 'pw-best' : ''}`}>{high ? money(high.equity) : 'No samples yet'}</span>
+          </div>
+        </div>
+      </div>
+      <EquityTrace points={points} baseline={account.lastEquity} high={high} stale={stale} />
+    </section>
+  );
+}
+
+function EquityTrace({ points, baseline, high, stale }: { points: { at: string; equity: number }[]; baseline: number; high: { at: string; equity: number } | null; stale: boolean }) {
   const first = points[0];
   const last = points[points.length - 1];
   if (!first || !last || points.length < 2) {
-    return <p className="pw-chart-empty pw-label">The line fills in as the engine records equity through the day.</p>;
+    return (
+      <figure className="pw-trace pw-trace-empty">
+        <p className="pw-label">The trace fills in as the engine records equity through the day.</p>
+      </figure>
+    );
   }
   const t0 = Date.parse(first.at);
   const span = Date.parse(last.at) - t0 || 1;
@@ -98,23 +183,28 @@ export function EquityChart({ points, baseline, stale }: { points: { at: string;
   const lo = Math.min(...values, baseline);
   const hi = Math.max(...values, baseline);
   const pad = (hi - lo) * 0.2 || Math.max(1, Math.abs(baseline) * 0.001);
-  const y = (v: number) => CHART_H - ((v - (lo - pad)) / (hi - lo + 2 * pad)) * CHART_H;
-  const line = points.map((p) => `${(((Date.parse(p.at) - t0) / span) * CHART_W).toFixed(1)},${y(p.equity).toFixed(1)}`).join(' ');
+  const x = (at: string) => ((Date.parse(at) - t0) / span) * TRACE_W;
+  const y = (v: number) => TRACE_H - ((v - (lo - pad)) / (hi - lo + 2 * pad)) * TRACE_H;
+  const line = points.map((p) => `${x(p.at).toFixed(1)},${y(p.equity).toFixed(1)}`).join(' ');
   const baseY = y(baseline);
+  const moved = Math.max(...values) > Math.min(...values);
   return (
-    <figure className={`pw-chart ${toneClass[stale ? 'flat' : tone(last.equity - baseline)]}`}>
-      <div className="pw-chart-plot">
-        <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none" aria-hidden>
-          {Math.max(...values) > Math.min(...values) && <polygon className="pw-chart-area" points={`0,${baseY} ${line} ${CHART_W},${baseY}`} />}
-          <line className="pw-chart-base" x1={0} x2={CHART_W} y1={baseY} y2={baseY} />
-          <polyline className="pw-chart-line" points={line} />
+    <figure className={`pw-trace ${toneClass[stale ? 'flat' : tone(last.equity - baseline)]}`}>
+      <div className="pw-trace-plot">
+        <svg viewBox={`0 0 ${TRACE_W} ${TRACE_H}`} preserveAspectRatio="none" aria-hidden>
+          {moved && <polygon className="pw-trace-area" points={`0,${baseY} ${line} ${TRACE_W},${baseY}`} />}
+          <line className="pw-trace-base" x1={0} x2={TRACE_W} y1={baseY} y2={baseY} />
+          <polyline className="pw-trace-line" points={line} />
         </svg>
-        <span className="pw-chart-base-label pw-figure-sm" style={{ top: `${(baseY / CHART_H) * 100}%` }}>
-          prev close {money(baseline)}
-        </span>
+        {moved && high && high.equity > baseline && !stale && (
+          <span className="pw-trace-high" style={{ left: `${(x(high.at) / TRACE_W) * 100}%`, top: `${(y(high.equity) / TRACE_H) * 100}%` }} title={`Day high ${money(high.equity)}`} />
+        )}
       </div>
-      <figcaption className="pw-chart-axis pw-figure-sm">
+      <figcaption className="pw-trace-axis pw-small">
         <span>{etTime(first.at)}</span>
+        <span className="pw-trace-legend">
+          <span className="pw-trace-swatch" aria-hidden /> Previous close
+        </span>
         <span>{etTime(last.at)}</span>
       </figcaption>
     </figure>
@@ -125,113 +215,169 @@ export function LimitMeter({ limit }: { limit: Limit }) {
   const ratio = limit.max > 0 ? Math.min(1, limit.used / limit.max) : 0;
   const level = limit.breached ? 'pw-meter-crit' : ratio >= 0.75 ? 'pw-meter-warn' : '';
   return (
-    <div className={level}>
+    <div className={`pw-meter ${level}`}>
       <div className="pw-meter-head">
         <span className="pw-label">{limit.label}</span>
-        <span className="pw-meter-pct pw-figure-sm">{pct(ratio * 100)}</span>
+        <span className="pw-meter-pct pw-figure">{pct(ratio * 100)}</span>
       </div>
       <div className="pw-meter-track" role="meter" aria-label={limit.label} aria-valuemin={0} aria-valuemax={limit.max} aria-valuenow={limit.used} aria-valuetext={limit.detail}>
-        <div className="pw-meter-fill" style={{ width: `${ratio * 100}%` }} />
+        <div className="pw-meter-fill" style={{ transform: `scaleX(${ratio})` }} />
       </div>
-      <div className="pw-meter-sub pw-figure-sm">{limit.detail}</div>
+      <div className="pw-meter-sub pw-small">{limit.detail}</div>
     </div>
   );
 }
 
-const GB = 1024 ** 3;
-
-const Dot = ({ kind }: { kind: 'pos' | 'warn' | 'neg' | null }) => (kind ? <span className={`pw-dot pw-dot-${kind}`} /> : null);
-
-/** The engine status dot. Each new heartbeat remounts the ring, so it pulses exactly when the engine reports in and stops when data goes stale. */
+/** The engine status light. Each new heartbeat remounts the ring, so it pulses exactly when the engine reports in and stops when data goes stale. */
 export function Pulse({ beat, live }: { beat: string | null; live: boolean }) {
   return (
     <span className="pw-pulse">
-      <span className={`pw-dot ${live ? 'pw-dot-pos' : 'pw-dot-warn'}`} />
+      <span className={`pw-light ${live ? 'pw-light-pos' : 'pw-light-warn'}`} />
       {live && beat && <span key={beat} className="pw-pulse-ring" aria-hidden />}
     </span>
   );
 }
 
-export function HealthFigures({ health, heartbeatAt, heartbeatAgeMs }: { health: Health; heartbeatAt: string | null; heartbeatAgeMs: number }) {
+const GB = 1024 ** 3;
+
+export function SystemReadout({ health, heartbeatAt, heartbeatAgeMs }: { health: Health; heartbeatAt: string | null; heartbeatAgeMs: number }) {
   const cpu = health.cpuTempC;
   const disk = health.diskUsedPct;
-  const rows: Figure[] = [
+  const warnLight = (on: boolean, level: 'warn' | 'neg' = 'warn') => (on ? <span className={`pw-light pw-light-${level}`} /> : null);
+  const cells: { label: ReactNode; value: string }[] = [
     {
       label: (
         <>
-          <Pulse beat={heartbeatAt} live={heartbeatAgeMs <= 15_000} />
-          Engine heartbeat
+          <Pulse beat={heartbeatAt} live={heartbeatAgeMs <= 15_000} /> Engine
         </>
       ),
-      value: Number.isFinite(heartbeatAgeMs) ? `${duration(heartbeatAgeMs / 1000)} ago` : 'none',
+      value: Number.isFinite(heartbeatAgeMs) ? `${duration(heartbeatAgeMs / 1000)} ago` : 'silent',
     },
     {
       label: (
         <>
-          <Dot kind={health.brokerConnected ? 'pos' : 'neg'} />
-          Broker
+          <span className={`pw-light ${health.brokerConnected ? 'pw-light-pos' : 'pw-light-neg'}`} /> Broker
         </>
       ),
-      value: health.brokerConnected ? 'connected' : 'disconnected',
+      value: health.brokerConnected ? 'connected' : 'down',
     },
   ];
-  if (cpu !== null) {
-    rows.push({
-      label: (
-        <>
-          <Dot kind={health.throttled || cpu >= 75 ? 'warn' : null} />
-          CPU
-        </>
-      ),
-      value: `${cpu.toFixed(1)}°C${health.throttled ? ' throttled' : ''}`,
-    });
-  }
-  if (disk !== null) {
-    rows.push({
-      label: (
-        <>
-          <Dot kind={disk >= 95 ? 'neg' : disk >= 80 ? 'warn' : null} />
-          Disk
-        </>
-      ),
-      value: pct(disk),
-    });
-  }
-  rows.push({ label: 'Memory', value: `${(health.memUsedBytes / GB).toFixed(1)} / ${(health.memTotalBytes / GB).toFixed(1)} GB` }, { label: 'Uptime', value: duration(health.uptimeS) });
-  return <Figures rows={rows} />;
+  if (cpu !== null) cells.push({ label: <>{warnLight(Boolean(health.throttled) || cpu >= 75)} CPU</>, value: `${cpu.toFixed(0)}°C${health.throttled ? ' throttled' : ''}` });
+  if (disk !== null) cells.push({ label: <>{warnLight(disk >= 80, disk >= 95 ? 'neg' : 'warn')} Disk</>, value: pct(disk) });
+  cells.push({ label: 'Memory', value: `${(health.memUsedBytes / GB).toFixed(1)} of ${(health.memTotalBytes / GB).toFixed(0)} GB` }, { label: 'Uptime', value: duration(health.uptimeS) });
+  return (
+    <dl className="pw-system" aria-label="System">
+      {cells.map((c, i) => (
+        <div key={i}>
+          <dt className="pw-small">{c.label}</dt>
+          <dd className="pw-figure">{c.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 }
 
-const STRATEGY_TAG: Record<StrategyState['kind'], string> = { running: 'pw-tag-run', paused: 'pw-tag-quiet', halted: 'pw-tag-halt' };
+const STATE_WORD: Record<StrategyState['kind'], string> = { running: 'RUNNING', paused: 'PAUSED', halted: 'HALTED' };
 
-export function StrategyRow({ strategy, busy, onToggle }: { strategy: Strategy; busy: boolean; onToggle: () => void }) {
+function TowerRow({ position, strategy, best, busy, onToggle }: { position: number; strategy: Strategy; best: boolean; busy: boolean; onToggle: () => void }) {
   const { id, symbol, state, todayPl, fillsToday } = strategy;
   const firstKind = useRef(state.kind);
   const changed = firstKind.current !== state.kind;
+  const t = tone(todayPl);
   return (
-    <div className="pw-strat">
-      {changed && <span key={state.kind} className={`pw-strat-flash pw-strat-flash-${state.kind}`} aria-hidden />}
-      <div className="pw-strat-main">
-        <div className="pw-strat-title">
-          <span className="pw-strat-name pw-figure">{id}</span>
-          <span key={state.kind} className={`pw-tag pw-figure-sm ${STRATEGY_TAG[state.kind]} ${changed ? 'pw-tag-enter' : ''}`}>
-            {state.kind}
-          </span>
-        </div>
-        <div className="pw-strat-meta pw-figure-sm">
-          <span>{symbol}</span>
-          <span>
-            {fillsToday} {fillsToday === 1 ? 'fill' : 'fills'} today
-          </span>
-          {state.kind === 'paused' && <span className="pw-strat-when">paused by you {localClock(state.at)}</span>}
-          {state.kind === 'halted' && <span className="pw-strat-when">halted {localClock(state.at)}</span>}
-        </div>
-        {state.kind === 'halted' && <p className="pw-strat-reason pw-label">{state.reason}</p>}
-      </div>
-      <SignedMoney value={todayPl} />
+    <li className={`pw-tower-row pw-state-${state.kind}`}>
+      {changed && <span key={state.kind} className={`pw-row-flash pw-row-flash-${state.kind}`} aria-hidden />}
+      <span className="pw-tower-pos pw-timing">P{position}</span>
+      <span className="pw-tower-id pw-timing">{id}</span>
+      <span className={`pw-tower-gap pw-timing pw-delta ${best ? 'pw-best' : toneClass[t]}`}>{`${signedMoney(todayPl)} ${glyph(t)}`.trim()}</span>
       <label className="pw-switch-hit">
         <input type="checkbox" role="switch" className="pw-switch" checked={state.kind === 'running'} disabled={busy} aria-label={`${id} running`} onChange={onToggle} />
       </label>
-    </div>
+      <span className="pw-tower-meta pw-small">
+        <span key={state.kind} className={`pw-state pw-state-chip-${state.kind} ${changed ? 'pw-state-enter' : ''}`}>
+          {STATE_WORD[state.kind]}
+        </span>
+        <span>{symbol}</span>
+        <span>{count(fillsToday, 'fill')} today</span>
+        {state.kind === 'paused' && <span>since {localClock(state.at)}</span>}
+      </span>
+      {state.kind === 'halted' && <p className="pw-tower-reason pw-small">{state.reason}</p>}
+    </li>
+  );
+}
+
+/** Strategies ranked like a timing tower: by today's P&L, best first. Pausing is immediate; resuming asks first. */
+export function TimingTower({ strategies, footer }: { strategies: Strategy[]; footer?: ReactNode }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [resuming, setResuming] = useState<Strategy | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const kinds = strategies.map((s) => s.state.kind).join();
+  useEffect(() => setBusy(null), [kinds]);
+  const ranked = [...strategies].sort((a, b) => b.todayPl - a.todayPl);
+  const leader = ranked[0];
+
+  const pause = async (s: Strategy) => {
+    setBusy(s.id);
+    setError(null);
+    const result = await sendCommand({ kind: 'pause-strategy', strategyId: s.id });
+    if (!result.ok) {
+      setBusy(null);
+      setError(result.error);
+    }
+  };
+  const closeResume = useCallback(() => setResuming(null), []);
+
+  return (
+    <section className="pw-tower" aria-labelledby="tower-title" id="strategies">
+      <header className="pw-tower-head">
+        <h2 id="tower-title" className="pw-title">
+          Strategies
+        </h2>
+        <span className="pw-small pw-muted">ranked by today's P&amp;L</span>
+      </header>
+      {ranked.length === 0 ? (
+        <Empty title="No strategies configured.">List them in PITWALL_STRATEGIES in .env.</Empty>
+      ) : (
+        <ol className="pw-tower-list">
+          {ranked.map((s, i) => (
+            <TowerRow
+              key={s.id}
+              position={i + 1}
+              strategy={s}
+              best={s === leader && s.todayPl > 0 && ranked.length > 1}
+              busy={busy === s.id}
+              onToggle={() => (s.state.kind === 'running' ? pause(s) : setResuming(s))}
+            />
+          ))}
+        </ol>
+      )}
+      {error && (
+        <p className="pw-help-error pw-label pw-tower-error" role="alert">
+          {error}
+        </p>
+      )}
+      {footer && <div className="pw-tower-foot">{footer}</div>}
+      {resuming && <ResumeSheet strategy={resuming} onClose={closeResume} onSent={() => setBusy(resuming.id)} />}
+    </section>
+  );
+}
+
+function ResumeSheet({ strategy, onClose, onSent }: { strategy: Strategy; onClose: () => void; onSent: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const confirm = async () => {
+    setBusy(true);
+    const result = await sendCommand({ kind: 'resume-strategy', strategyId: strategy.id });
+    setBusy(false);
+    if (!result.ok) return setError(result.error);
+    onSent();
+    onClose();
+  };
+  return (
+    <ConfirmSheet title={`Resume ${strategy.id}?`} confirmLabel="Resume" confirmClass="pw-btn-primary" busy={busy} error={error} onConfirm={confirm} onCancel={onClose}>
+      {strategy.state.kind === 'halted' && <p>It was halted: {strategy.state.reason}</p>}
+      <p>It trades {strategy.symbol} again on its next signal.</p>
+    </ConfirmSheet>
   );
 }
 
@@ -250,27 +396,34 @@ export function collapseEvents(events: EventRecord[]): EventGroup[] {
   return groups;
 }
 
-const SEVERITY_TAG: Record<Severity, string> = { info: 'pw-tag-quiet', warn: 'pw-tag-warn', error: 'pw-tag-halt', halt: 'pw-tag-halt' };
-
-export function EventRow({ group, fresh = false }: { group: EventGroup; fresh?: boolean }) {
-  const { latest, earliest, count } = group;
-  return (
-    <div className={`pw-event ${fresh ? 'pw-event-new' : ''}`}>
-      <span className="pw-event-time pw-figure-sm">{localClock(latest.at)}</span>
-      <span className={`pw-tag pw-figure-sm ${SEVERITY_TAG[latest.severity]}`}>{latest.severity}</span>
-      <span className="pw-event-msg pw-body">{latest.message}</span>
-      <span className="pw-event-src pw-figure-sm">
-        {latest.source}
-        {count > 1 && ` · ${count} times since ${localClock(earliest.at)}`}
-      </span>
-    </div>
-  );
-}
-
 /** Events newer than the newest one on screen when this list first rendered. Only those animate in. */
 export function useArrivals(events: EventRecord[]) {
   const [baseline] = useState(() => events.reduce((max, e) => Math.max(max, e.id), 0));
   return (e: EventRecord) => e.id > baseline;
+}
+
+const SEVERITY_WORD: Record<Severity, string> = { info: 'INFO', warn: 'WARN', error: 'ERROR', halt: 'HALT' };
+
+export function EventRow({ group, fresh = false }: { group: EventGroup; fresh?: boolean }) {
+  const { latest, earliest, count: n } = group;
+  return (
+    <li className={`pw-event ${fresh ? 'pw-event-new' : ''}`}>
+      <span className="pw-event-time pw-small">{localClock(latest.at)}</span>
+      <span className={`pw-event-sev pw-small pw-sev-${latest.severity}`}>{SEVERITY_WORD[latest.severity]}</span>
+      <span className="pw-event-msg pw-body">{latest.message}</span>
+      <span className="pw-event-src pw-small">{n > 1 ? `${latest.source}, ${n} times since ${localClock(earliest.at)}` : latest.source}</span>
+    </li>
+  );
+}
+
+export function EventLog({ events, fresh }: { events: EventGroup[]; fresh: (e: EventRecord) => boolean }) {
+  return (
+    <ol className="pw-events">
+      {events.map((g) => (
+        <EventRow key={g.latest.id} group={g} fresh={fresh(g.latest)} />
+      ))}
+    </ol>
+  );
 }
 
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
@@ -291,7 +444,7 @@ export function PasscodeInput({ value, onChange, error, help }: { value: string;
       </label>
       <input
         id={id}
-        className="pw-input pw-figure-lg"
+        className="pw-input pw-board"
         type="password"
         inputMode="numeric"
         autoComplete="current-password"
@@ -334,7 +487,7 @@ export function ConfirmSheet(props: {
     if (!busy) onConfirm();
   };
   return createPortal(
-    <div className="pw-scrim pw-modal" onClick={(e) => e.target === e.currentTarget && onCancel()}>
+    <div className="pw-scrim" onClick={(e) => e.target === e.currentTarget && onCancel()}>
       <form className="pw-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} onSubmit={submit}>
         <h2 id={titleId} className="pw-title">
           {title}
@@ -392,7 +545,7 @@ export function HoldToFlatten({ onComplete }: { onComplete: () => void }) {
     <button
       ref={button}
       type="button"
-      className={`pw-btn pw-btn-danger pw-btn-block ${holding ? 'pw-holding' : ''}`}
+      className={`pw-btn pw-btn-flatten ${holding ? 'pw-holding' : ''}`}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -411,7 +564,6 @@ export function HoldToFlatten({ onComplete }: { onComplete: () => void }) {
       onContextMenu={(e) => e.preventDefault()}
     >
       <span className="pw-hold" aria-hidden />
-      <OctagonX className="pw-icon" aria-hidden />
       <span>{holding ? 'Keep holding…' : 'Hold to flatten'}</span>
     </button>
   );
