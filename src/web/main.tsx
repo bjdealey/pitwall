@@ -2,7 +2,7 @@ import '@fontsource-variable/archivo/wdth.css';
 import './tokens.css';
 import './pitwall.css';
 import { Activity, ArrowLeftRight, Briefcase, Gauge, Layers, OctagonX } from 'lucide-react';
-import { StrictMode, useCallback, useEffect, useState, type FormEvent } from 'react';
+import { StrictMode, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { MarketChip, ModeStrip, PasscodeInput, TrackBand, trackStatus } from './components.tsx';
@@ -35,6 +35,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const feed = useSnapshot(onSignedOut);
   const now = useNow();
   const route = useRoute();
+  const mainRef = useRef<HTMLElement>(null);
   const [pausing, setPausing] = useState(false);
   const openPauseAll = useCallback(() => setPausing(true), []);
   const closePauseAll = useCallback(() => setPausing(false), []);
@@ -46,10 +47,15 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
 
   return (
     <div className="pw-app">
+      <button type="button" className="pw-skip pw-label" onClick={() => mainRef.current?.focus()}>
+        Skip to content
+      </button>
       <ModeStrip mode={feed?.snapshot.mode ?? null} />
       <TrackBand status={status} />
       <header className="pw-gantry">
-        <span className="pw-wordmark">PITWALL</span>
+        <span className="pw-wordmark" translate="no">
+          PITWALL
+        </span>
         <nav className="pw-nav" aria-label="Screens">
           {ROUTES.map(({ hash, label }) => (
             <a key={hash} href={hash} className="pw-nav-item pw-timing" aria-current={hash === route.hash ? 'page' : undefined}>
@@ -64,13 +70,13 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
           <span>Stop</span>
         </button>
       </header>
-      <main className="pw-content">
+      <main ref={mainRef} className="pw-content" tabIndex={-1}>
         <h1 className="pw-sr">{route.label}</h1>
         <div className="pw-main">
           {feed ? (
             <route.Screen snapshot={feed.snapshot} stale={stale} heartbeatAgeMs={heartbeatAgeMs} openPauseAll={openPauseAll} />
           ) : (
-            <p className="pw-waiting pw-label pw-muted">Waiting for the first engine heartbeat.</p>
+            <p className="pw-waiting pw-label pw-muted">Waiting for the first engine heartbeat…</p>
           )}
         </div>
       </main>
@@ -105,7 +111,9 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
     <div className="pw-login">
       <ModeStrip mode={null} />
       <form className="pw-login-board" onSubmit={submit}>
-        <span className="pw-wordmark">PITWALL</span>
+        <h1 className="pw-wordmark" translate="no">
+          PITWALL
+        </h1>
         <PasscodeInput value={passcode} onChange={setPasscode} error={error} help="Sign in to watch and stop the bot." />
         <button type="submit" className="pw-btn pw-btn-primary" disabled={busy}>
           {busy ? 'Checking…' : 'Sign in'}

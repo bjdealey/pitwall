@@ -58,7 +58,7 @@ export async function postJson(url: string, body: unknown): Promise<PostResult> 
   try {
     res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   } catch {
-    return { ok: false, error: 'Pitwall API unreachable.' };
+    return { ok: false, error: 'Pitwall API unreachable. Check the Pi is on and Tailscale is connected.' };
   }
   if (res.ok) return { ok: true };
   const data: { error?: unknown; lockedUntil?: unknown } = await res.json().catch(() => ({}));

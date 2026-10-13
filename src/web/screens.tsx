@@ -167,7 +167,9 @@ function PositionsTable({ positions, compact = false }: { positions: Position[];
             const t = tone(p.unrealizedPl);
             return (
               <tr key={`${p.symbol}:${p.qty}`} className={before !== undefined && before !== p.qty ? 'pw-changed' : undefined}>
-                <td className="pw-timing">{p.symbol}</td>
+                <td className="pw-timing" translate="no">
+                  {p.symbol}
+                </td>
                 <td className="pw-r">{qty(p.qty)}</td>
                 <td className={`pw-r ${extra}`}>{money(p.avgEntryPrice)}</td>
                 <td className="pw-r">{money(p.lastPrice)}</td>
@@ -224,13 +226,17 @@ export function Orders({ snapshot, stale }: ScreenProps) {
                 {orders.map((o) => (
                   <tr key={o.id}>
                     <td className="pw-muted">{etClock(o.submittedAt)}</td>
-                    <td className="pw-timing">{o.symbol}</td>
+                    <td className="pw-timing" translate="no">
+                      {o.symbol}
+                    </td>
                     <td className="pw-small pw-caps">{o.side}</td>
                     <td className="pw-r">{qty(o.qty)}</td>
                     <td className="pw-r pw-hide-phone">{qty(o.filledQty)}</td>
                     <td className="pw-r pw-hide-phone">{o.filledAvgPrice === null ? '' : money(o.filledAvgPrice)}</td>
                     <td className={`pw-small pw-caps ${ORDER_STATE[orderState(o.status)]}`}>{o.status.replaceAll('_', ' ')}</td>
-                    <td className={`pw-hide-phone ${o.strategyId ? '' : 'pw-muted'}`}>{o.strategyId ?? 'manual'}</td>
+                    <td className={`pw-hide-phone ${o.strategyId ? '' : 'pw-muted'}`} translate="no">
+                      {o.strategyId ?? 'manual'}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -288,7 +288,9 @@ function TowerRow({ position, strategy, best, busy, onToggle }: { position: numb
     <li className={`pw-tower-row pw-state-${state.kind}`}>
       {changed && <span key={state.kind} className={`pw-row-flash pw-row-flash-${state.kind}`} aria-hidden />}
       <span className="pw-tower-pos pw-timing">P{position}</span>
-      <span className="pw-tower-id pw-timing">{id}</span>
+      <span className="pw-tower-id pw-timing" translate="no">
+        {id}
+      </span>
       <span className={`pw-tower-gap pw-timing pw-delta ${best ? 'pw-best' : toneClass[t]}`}>{`${signedMoney(todayPl)} ${glyph(t)}`.trim()}</span>
       <label className="pw-switch-hit">
         <input type="checkbox" role="switch" className="pw-switch" checked={state.kind === 'running'} disabled={busy} aria-label={`${id} running`} onChange={onToggle} />
@@ -297,7 +299,7 @@ function TowerRow({ position, strategy, best, busy, onToggle }: { position: numb
         <span key={state.kind} className={`pw-state pw-state-chip-${state.kind} ${changed ? 'pw-state-enter' : ''}`}>
           {STATE_WORD[state.kind]}
         </span>
-        <span>{symbol}</span>
+        <span translate="no">{symbol}</span>
         <span>{count(fillsToday, 'fill')} today</span>
         {state.kind === 'paused' && <span>since {localClock(state.at)}</span>}
       </span>
@@ -333,7 +335,7 @@ export function TimingTower({ strategies, footer }: { strategies: Strategy[]; fo
         <h2 id="tower-title" className="pw-title">
           Strategies
         </h2>
-        <span className="pw-small pw-muted">ranked by today's P&amp;L</span>
+        <span className="pw-small pw-muted">ranked by today’s P&amp;L</span>
       </header>
       {ranked.length === 0 ? (
         <Empty title="No strategies configured.">List them in PITWALL_STRATEGIES in .env.</Empty>
