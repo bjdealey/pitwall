@@ -15,6 +15,7 @@
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.web.json",
     "tokens": "node scripts/tokens.ts",
+    "design-system": "node scripts/design-system.ts",
     "hash-passcode": "node scripts/hash-passcode.ts",
     "db:generate": "drizzle-kit generate"
   },

@@ -7,7 +7,7 @@ These are the decisions the interface depends on. Build screens against them and
 - One operator, one bot, one Raspberry Pi 5 (4–8 GB) that boots from an SSD.
 - The bot trades US equities through Alpaca. Crypto may come later through the same broker.
 - v1 runs on Alpaca's paper account with one example strategy, `sma-cross-spy`.
-- Live trading is a config flag on the Pi. The UI can never switch modes. It only shows the ModeBanner.
+- Live trading is a config flag on the Pi. The UI can never switch modes. It only shows the ModeStrip.
 
 ## Processes
 
@@ -36,13 +36,15 @@ These are the decisions the interface depends on. Build screens against them and
 
 ## Screens (v1)
 
-1. **Overview:** tiles, limits, health, Pause all, Flatten
+1. **Overview:** the timing tower with Pause all, Hold to flatten and the system readout; the pit board with today's trace; Positions, Limits and Account screens; the latest events
 2. **Positions**
 3. **Orders & fills**
 4. **Strategies:** state, today's P&L, pause or resume
 5. **Events:** halts, errors, warnings, your own actions
 
-Deferred: equity-curve history, a trade journal, backtest results.
+Above every screen sit the ModeStrip and the TrackBand, which flags the session: calm when all runs, yellow when something is paused or stale, red when the engine halted.
+
+Deferred: equity-curve history beyond today, a trade journal, backtest results.
 
 ## Alerts
 
@@ -50,7 +52,7 @@ The engine POSTs to ntfy for halts, engine down and errors. Alerts for fills are
 
 ## Health
 
-The HealthStrip shows engine heartbeat age, broker connection, Pi CPU temperature (with throttling), disk use, memory use and uptime.
+The SystemReadout at the foot of the timing tower shows engine heartbeat age, broker connection, Pi CPU temperature (with throttling), disk use, memory use and uptime.
 
 ## Data
 
