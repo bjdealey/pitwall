@@ -1,5 +1,5 @@
 import { Pause } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { Position, Snapshot } from '../shared/domain.ts';
 import { etClock, glyph, money, qty, signedPct, tone } from '../shared/format.ts';
 import { isOpenOrder } from '../shared/orders.ts';
@@ -22,7 +22,7 @@ import {
 } from './components.tsx';
 import { sendCommand } from './data.ts';
 
-export type ScreenProps = { snapshot: Snapshot; stale: boolean; heartbeatAgeMs: number; openPauseAll: () => void };
+export type ScreenProps = { snapshot: Snapshot; stale: boolean; openPauseAll: () => void };
 
 const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -32,7 +32,7 @@ const ScreenLink = ({ href, children }: { href: string; children: string }) => (
   </a>
 );
 
-export function Overview({ snapshot, stale, heartbeatAgeMs, openPauseAll }: ScreenProps) {
+export const Overview = memo(function Overview({ snapshot, stale, openPauseAll }: ScreenProps) {
   const { account, positions, limits, health, events, strategies, equityToday, heartbeatAt } = snapshot;
   const [flattening, setFlattening] = useState(false);
   const unrealized = positions.reduce((sum, p) => sum + p.unrealizedPl, 0);
@@ -54,7 +54,7 @@ export function Overview({ snapshot, stale, heartbeatAgeMs, openPauseAll }: Scre
                 <HoldToFlatten onComplete={() => setFlattening(true)} />
               </div>
               <p className="pw-small pw-muted pw-controls-hint">Pause all keeps positions. Flatten closes them at market after a 2-second hold and your passcode.</p>
-              <SystemReadout health={health} heartbeatAt={heartbeatAt} heartbeatAgeMs={heartbeatAgeMs} />
+              <SystemReadout health={health} heartbeatAt={heartbeatAt} />
             </>
           }
         />
@@ -93,7 +93,7 @@ export function Overview({ snapshot, stale, heartbeatAgeMs, openPauseAll }: Scre
       {flattening && <FlattenSheet snapshot={snapshot} onClose={() => setFlattening(false)} />}
     </div>
   );
-}
+});
 
 const openOrdersLine = (snapshot: Snapshot | null) => (snapshot ? `Cancels ${count(snapshot.orders.filter(isOpenOrder).length, 'open order')}.` : 'Cancels open orders.');
 
@@ -185,7 +185,7 @@ function PositionsTable({ positions }: { positions: Position[] }) {
   );
 }
 
-export function Positions({ snapshot, stale }: ScreenProps) {
+export const Positions = memo(function Positions({ snapshot, stale }: ScreenProps) {
   const { positions } = snapshot;
   return (
     <div className={`pw-page ${stale ? 'pw-is-stale' : ''}`}>
@@ -194,12 +194,12 @@ export function Positions({ snapshot, stale }: ScreenProps) {
       </Screen>
     </div>
   );
-}
+});
 
 const ORDER_STATE: Record<'rejected' | 'open' | 'done', string> = { rejected: 'pw-sev-error', open: 'pw-sev-warn', done: 'pw-sev-info' };
 const orderState = (status: string) => (status === 'rejected' ? 'rejected' : isOpenOrder({ status }) ? 'open' : 'done');
 
-export function Orders({ snapshot, stale }: ScreenProps) {
+export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
   const { orders } = snapshot;
   return (
     <div className={`pw-page ${stale ? 'pw-is-stale' : ''}`}>
@@ -245,24 +245,26 @@ export function Orders({ snapshot, stale }: ScreenProps) {
       </Screen>
     </div>
   );
-}
+});
 
-export function Strategies({ snapshot }: ScreenProps) {
+export const Strategies = memo(function Strategies({ snapshot }: ScreenProps) {
   return (
     <div className="pw-page pw-page-narrow">
       <TimingTower strategies={snapshot.strategies} />
     </div>
   );
-}
+});
 
 const dayLabel = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 
-export function Events({ snapshot }: ScreenProps) {
+export const Events = memo(function Events({ snapshot }: ScreenProps) {
   const arrived = useArrivals(snapshot.events);
   const days = new Map<string, typeof snapshot.events>();
   for (const e of snapshot.events) {
     const day = dayLabel.format(new Date(e.at));
-    days.set(day, [...(days.get(day) ?? []), e]);
+    const list = days.get(day);
+    if (list) list.push(e);
+    else days.set(day, [e]);
   }
   return (
     <div className="pw-page">
@@ -279,4 +281,4 @@ export function Events({ snapshot }: ScreenProps) {
       )}
     </div>
   );
-}
+});

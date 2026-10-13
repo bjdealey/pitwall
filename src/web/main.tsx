@@ -5,7 +5,7 @@ import { Activity, ArrowLeftRight, Briefcase, Gauge, Layers, OctagonX } from 'lu
 import { StrictMode, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { MarketChip, ModeStrip, PasscodeInput, TrackBand, trackStatus } from './components.tsx';
+import { HeartbeatAgeContext, MarketChip, ModeStrip, PasscodeInput, TrackBand, trackStatus } from './components.tsx';
 import { freshness, postJson, useNow, useSnapshot } from './data.ts';
 import { Events, Orders, Overview, PauseAllSheet, Positions, Strategies } from './screens.tsx';
 
@@ -74,7 +74,9 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         <h1 className="pw-sr">{route.label}</h1>
         <div className="pw-main">
           {feed ? (
-            <route.Screen snapshot={feed.snapshot} stale={stale} heartbeatAgeMs={heartbeatAgeMs} openPauseAll={openPauseAll} />
+            <HeartbeatAgeContext value={heartbeatAgeMs}>
+              <route.Screen snapshot={feed.snapshot} stale={stale} openPauseAll={openPauseAll} />
+            </HeartbeatAgeContext>
           ) : (
             <p className="pw-waiting pw-label pw-muted">Waiting for the first engine heartbeat…</p>
           )}

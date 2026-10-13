@@ -4,7 +4,8 @@ import type { Command, Snapshot } from '../shared/domain.ts';
 const STREAM_STALE_MS = 3_000;
 const HEARTBEAT_STALE_MS = 15_000;
 
-export type Feed = { snapshot: Snapshot; receivedAt: number };
+// serverTime and receivedAt sit beside the snapshot so a tick moves them without giving the snapshot a new identity.
+export type Feed = { snapshot: Snapshot; serverTime: string; receivedAt: number };
 
 /** One EventSource for the whole app. Calls onSignedOut when the stream closes because the session is gone. */
 export function useSnapshot(onSignedOut: () => void): Feed | null {
@@ -14,8 +15,11 @@ export function useSnapshot(onSignedOut: () => void): Feed | null {
     let retry: ReturnType<typeof setTimeout> | undefined;
     const open = () => {
       source = new EventSource('/api/stream');
-      source.addEventListener('snapshot', (e: MessageEvent<string>) => setFeed({ snapshot: JSON.parse(e.data), receivedAt: Date.now() }));
-      source.addEventListener('tick', (e: MessageEvent<string>) => setFeed((feed) => feed && { snapshot: { ...feed.snapshot, serverTime: e.data }, receivedAt: Date.now() }));
+      source.addEventListener('snapshot', (e: MessageEvent<string>) => {
+        const snapshot: Snapshot = JSON.parse(e.data);
+        setFeed({ snapshot, serverTime: snapshot.serverTime, receivedAt: Date.now() });
+      });
+      source.addEventListener('tick', (e: MessageEvent<string>) => setFeed((feed) => feed && { ...feed, serverTime: e.data, receivedAt: Date.now() }));
       source.onerror = () => {
         if (source?.readyState !== EventSource.CLOSED) return;
         fetch('/api/session').then(
@@ -43,9 +47,9 @@ export function useNow(): number {
 }
 
 /** Heartbeat age measured on the server clock, plus time since this snapshot arrived, so a skewed browser clock cannot hide staleness. */
-export function freshness({ snapshot, receivedAt }: Feed, now: number) {
+export function freshness({ snapshot, serverTime, receivedAt }: Feed, now: number) {
   const sinceReceived = now - receivedAt;
-  const heartbeatAgeMs = snapshot.heartbeatAt === null ? Infinity : Date.parse(snapshot.serverTime) - Date.parse(snapshot.heartbeatAt) + sinceReceived;
+  const heartbeatAgeMs = snapshot.heartbeatAt === null ? Infinity : Date.parse(serverTime) - Date.parse(snapshot.heartbeatAt) + sinceReceived;
   return { stale: sinceReceived > STREAM_STALE_MS || heartbeatAgeMs > HEARTBEAT_STALE_MS, heartbeatAgeMs };
 }
 

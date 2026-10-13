@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Account, EventRecord, Health, Limit, MarketSession, Mode, Severity, Strategy, StrategyState } from '../shared/domain.ts';
 import { et } from '../shared/et.ts';
@@ -240,7 +240,11 @@ export function Pulse({ beat, live }: { beat: string | null; live: boolean }) {
 
 const GB = 1024 ** 3;
 
-export function SystemReadout({ health, heartbeatAt, heartbeatAgeMs }: { health: Health; heartbeatAt: string | null; heartbeatAgeMs: number }) {
+/** The engine's heartbeat age changes every second. Screens are memoized on the snapshot, so only readers of this context tick. */
+export const HeartbeatAgeContext = createContext(Infinity);
+
+export function SystemReadout({ health, heartbeatAt }: { health: Health; heartbeatAt: string | null }) {
+  const heartbeatAgeMs = useContext(HeartbeatAgeContext);
   const cpu = health.cpuTempC;
   const disk = health.diskUsedPct;
   const warnLight = (on: boolean, level: 'warn' | 'neg' = 'warn') => (on ? <span className={`pw-light pw-light-${level}`} /> : null);
@@ -310,20 +314,22 @@ function TowerRow({ position, strategy, best, busy, onToggle }: { position: numb
 
 /** Strategies ranked like a timing tower: by today's P&L, best first. Pausing is immediate; resuming asks first. */
 export function TimingTower({ strategies, footer }: { strategies: Strategy[]; footer?: ReactNode }) {
-  const [busy, setBusy] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ id: string; kinds: string } | null>(null);
   const [resuming, setResuming] = useState<Strategy | null>(null);
   const [error, setError] = useState<string | null>(null);
   const kinds = strategies.map((s) => s.state.kind).join();
-  useEffect(() => setBusy(null), [kinds]);
-  const ranked = [...strategies].sort((a, b) => b.todayPl - a.todayPl);
+  // A command is pending until the engine changes any strategy's state.
+  if (pending && pending.kinds !== kinds) setPending(null);
+  const busy = pending?.id ?? null;
+  const ranked = strategies.toSorted((a, b) => b.todayPl - a.todayPl);
   const leader = ranked[0];
 
   const pause = async (s: Strategy) => {
-    setBusy(s.id);
+    setPending({ id: s.id, kinds });
     setError(null);
     const result = await sendCommand({ kind: 'pause-strategy', strategyId: s.id });
     if (!result.ok) {
-      setBusy(null);
+      setPending(null);
       setError(result.error);
     }
   };
@@ -359,7 +365,7 @@ export function TimingTower({ strategies, footer }: { strategies: Strategy[]; fo
         </p>
       )}
       {footer && <div className="pw-tower-foot">{footer}</div>}
-      {resuming && <ResumeSheet strategy={resuming} onClose={closeResume} onSent={() => setBusy(resuming.id)} />}
+      {resuming && <ResumeSheet strategy={resuming} onClose={closeResume} onSent={() => setPending({ id: resuming.id, kinds })} />}
     </section>
   );
 }

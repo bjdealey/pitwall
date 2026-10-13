@@ -8,6 +8,7 @@ import {
   Empty,
   EventLog,
   Figures,
+  HeartbeatAgeContext,
   HoldToFlatten,
   LimitMeter,
   MarketChip,
@@ -131,7 +132,7 @@ const towerFooter = (
       <HoldToFlatten onComplete={noop} />
     </div>
     <p className="pw-small pw-muted pw-controls-hint">Pause all keeps positions. Flatten closes them at market after a 2-second hold and your passcode.</p>
-    <SystemReadout health={health} heartbeatAt={snapshot.heartbeatAt} heartbeatAgeMs={2_000} />
+    <SystemReadout health={health} heartbeatAt={snapshot.heartbeatAt} />
   </>
 );
 
@@ -370,7 +371,7 @@ Source: \`TimingTower\` in \`src/web/components.tsx\`.`,
     body: (
       <div style={pad}>
         <div className="pw-tower" style={pad}>
-          <SystemReadout health={health} heartbeatAt={snapshot.heartbeatAt} heartbeatAgeMs={2_000} />
+          <SystemReadout health={health} heartbeatAt={snapshot.heartbeatAt} />
         </div>
       </div>
     ),
@@ -459,9 +460,9 @@ Source: \`Figures\` in \`src/web/components.tsx\`.`,
     subtitle: 'positions and orders',
     body: (
       <div className="pw-main">
-        <Positions snapshot={snapshot} stale={false} heartbeatAgeMs={2_000} openPauseAll={noop} />
+        <Positions snapshot={snapshot} stale={false} openPauseAll={noop} />
         <div style={{ height: 16 }} />
-        <Orders snapshot={snapshot} stale={false} heartbeatAgeMs={2_000} openPauseAll={noop} />
+        <Orders snapshot={snapshot} stale={false} openPauseAll={noop} />
       </div>
     ),
     readme: `Positions and orders as plain tables inside a Screen.
@@ -760,7 +761,7 @@ Source: \`PasscodeInput\` in \`src/web/components.tsx\`.`,
     subtitle: 'the whole first screen on desktop',
     body: (
       <div className="pw-main">
-        <Overview snapshot={snapshot} stale={false} heartbeatAgeMs={2_000} openPauseAll={noop} />
+        <Overview snapshot={snapshot} stale={false} openPauseAll={noop} />
       </div>
     ),
     readme: `The first screen: the timing tower on the left, the pit board, Positions, Limits, Account and the latest events on the right.
@@ -779,4 +780,4 @@ Source: \`Overview\` in \`src/web/screens.tsx\`.`,
   },
 ];
 
-export const renderCards = () => cards.map(({ body, ...card }) => ({ ...card, html: renderToStaticMarkup(body) }));
+export const renderCards = () => cards.map(({ body, ...card }) => ({ ...card, html: renderToStaticMarkup(<HeartbeatAgeContext value={2_000}>{body}</HeartbeatAgeContext>) }));
