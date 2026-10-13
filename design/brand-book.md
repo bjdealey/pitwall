@@ -14,7 +14,7 @@ Pitwall is the monitor and emergency brake for a personal trading bot running on
 
 **The theme lives in the visuals, not the words.** The band shows a flag; its text says "2 strategies halted at 04:00.", not "Red flag". Screens are named for what they show: Overview, Positions, Orders & fills, Strategies, Events.
 
-**Say the cause and the effect.** Write "Daily loss limit reached (−2.00%). All strategies paused.", not "Something went wrong." Engine halt reasons appear verbatim.
+**Say the cause and the effect.** Write "Daily loss limit reached (−2.00%). All strategies paused.", not "Something went wrong." Engine halt reasons appear verbatim. An error you can act on names the next step: "Pitwall API unreachable. Check the Pi is on and Tailscale is connected."
 
 **Buttons are verbs that name the effect**: "Pause all", "Hold to flatten", "Resume", "Review strategies", "Cancel". Confirm titles ask with the same verb: "Pause all strategies?" Never "Are you sure?" and never "OK".
 
@@ -37,6 +37,8 @@ Pitwall is the monitor and emergency brake for a personal trading bot running on
 **Strategy IDs** appear exactly as in the engine config, kebab-case, in the condensed `timing` style: `sma-cross-spy`.
 
 **Empty states** say what will fill them: "No open positions. Strategies open them on their next signal while the market is open."
+
+**Typography in copy.** Ellipsis `…`, never three dots, and every loading line ends with one: "Waiting for the first engine heartbeat…", "Checking…". Apostrophes and quotes are curly: today’s.
 
 ## Colour
 
@@ -92,13 +94,17 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
 
 Anything you tap is at least `tap-min` tall.
 
+The side gutter is 24px on desktop and 16px below 900px, and never less than the device's safe-area inset, so a phone held sideways keeps the notch clear of the band, the gantry and the page. The tab bar pads for the home indicator.
+
 ## Shape and depth
 
 Screens are hardware, nearly square: `radius-sm` (2px) for screens, chips and inputs, `radius-md` (4px) for buttons and dialogs, `radius-full` for switches and status lights. There are no shadows on the page. Depth is asphalt showing between black screens. Only dialogs lift, with `shadow-sheet` over `scrim`.
 
 ## Focus
 
-Every control shows a 2px `accent` outline with a 2px offset on `:focus-visible`.
+Every control shows a 2px `accent` outline with a 2px offset on `:focus-visible`. Inside the track band the outline takes the band's ink (`currentColor`), because timing white vanishes on the yellow flag.
+
+The first Tab on every screen reaches "Skip to content", which moves focus to the page without touching the route. Dialogs are native modal `<dialog>`s: focus starts on Cancel, Tab stays inside, Escape or a click on the backdrop cancels, and focus returns to the control that opened them. A wrong passcode moves focus back to the field.
 
 ## Motion
 
@@ -111,9 +117,9 @@ Motion reports something or it does not run. Prices never flash on ticks. The wh
 - **Pending command.** A strategy switch pulses its knob while the engine applies the command.
 - **State change.** When a strategy's state changes, its status value pops in and its tower row flashes the state colour once (1.4s).
 - **New event.** A newly arrived event row tints and settles (1.6s).
-- **Feedback.** Buttons press to 98%. Dialogs fade and rise (200ms). Figures fade to `muted` when stale (300ms). A position row tints when its quantity changes.
+- **Feedback.** Buttons press to 98%. Dialogs fade and rise (200ms) over a backdrop that fades in (160ms). Figures fade to `muted` when stale (300ms). A position row tints when its quantity changes (600ms).
 
-Easing is `cubic-bezier(.16, 1, .3, 1)` for arrivals, and exits run faster than entrances. Under `prefers-reduced-motion` nothing moves: entrances become fades, the pulse becomes a glow, row tints stay, and the hold fill still tracks the press.
+Easing is `cubic-bezier(.16, 1, .3, 1)` for arrivals, and exits run faster than entrances. Motion animates `transform` and `opacity` only: row tints and flashes are a layer behind the row that fades out, never an animated background. Under `prefers-reduced-motion` nothing moves: entrances become fades, the pulse becomes a glow, row tints stay, and the hold fill still tracks the press.
 
 ## States
 
@@ -122,9 +128,16 @@ Easing is `cubic-bezier(.16, 1, .3, 1)` for arrivals, and exits run faster than 
 | All running, market open | Calm band, green flag icon, "All 2 strategies running." | — |
 | Market closed, pre-market or after-hours | Calm band, chequered flag | — |
 | One or more paused by you | Yellow band, "Review strategies" | Tower rows show PAUSED and the time |
-| Stale: no snapshot for 3s, or heartbeat older than 15s | Yellow band with the age | Figures fade to `muted`; controls stay enabled |
+| Stale: no snapshot for 3s, or heartbeat older than 15s | Yellow band, "No engine data.", with the last heartbeat's age in the detail | Figures fade to `muted`; controls stay enabled |
 | Halted: the engine paused itself on a limit | Red band with the reason and "Review strategies" | Tower rows show a red HALTED chip and the reason |
 | Locked out after 5 wrong passcodes | — | The passcode field says until when |
+
+## Screen readers
+
+- **The band speaks once per change.** Only its headline is a live region, and the headline holds no counter, so a stale band is announced once, not every second. The detail stays readable but silent.
+- **Flatten has a path without the hold.** Assistive tech activates a button with a click, not a press, so a click with no pointer behind it opens the passcode sheet directly. The passcode still guards it.
+- **Identifiers stay untranslated.** The wordmark, symbols and strategy IDs carry `translate="no"`.
+- **Errors are announced.** The passcode help line is a polite live region, and dialog and tower errors are alerts.
 
 ## Iconography
 
