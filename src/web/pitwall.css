@@ -205,8 +205,9 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-help { color: var(--muted); }
 .pw-help-error { color: var(--neg); }
 
-.pw-scrim { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: var(--space-4); background: var(--scrim); }
-.pw-sheet { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; max-width: 460px; padding: var(--space-6); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sheet); }
+.pw-sheet { width: calc(100% - 2 * var(--space-4)); max-width: 460px; max-height: calc(100dvh - 2 * var(--space-4)); padding: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); color: var(--fg); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sheet); }
+.pw-sheet::backdrop { background: var(--scrim); animation: pw-fade-in 160ms ease-out both; }
+.pw-sheet-form { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-6); }
 .pw-sheet h2 { margin: 0; }
 .pw-sheet-body { display: flex; flex-direction: column; gap: var(--space-3); }
 .pw-sheet ul { margin: 0; padding-left: var(--space-4); }
@@ -267,7 +268,6 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-table tr.pw-changed td { animation: pw-tint 600ms ease-out; }
 @keyframes pw-tint { from { background: var(--border); } }
 
-.pw-scrim { animation: pw-fade-in 160ms ease-out both; }
 .pw-sheet { animation: pw-rise-in 200ms cubic-bezier(.16, 1, .3, 1) both; }
 .pw-stat-value, .pw-delta, .pw-table td, .pw-trace { transition: color 300ms ease-out; }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Account, EventRecord, Health, Limit, MarketSession, Mode, Severity, Strategy, StrategyState } from '../shared/domain.ts';
 import { et } from '../shared/et.ts';
@@ -472,23 +472,34 @@ export function ConfirmSheet(props: {
 }) {
   const { title, confirmLabel, confirmClass, busy, error, onConfirm, onCancel, children } = props;
   const titleId = useId();
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
-  // Parents re-render every second with a fresh onCancel; focusing and binding once keeps focus where the user put it.
-  useEffect(() => {
+  // Parents re-render every second with a fresh onCancel; opening once keeps focus where the user put it.
+  // Layout cleanup closes the dialog before React removes it, so the browser returns focus to the trigger.
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    dialog?.showModal();
     cancelRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onCancelRef.current();
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => dialog?.close();
   }, []);
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!busy) onConfirm();
   };
   return createPortal(
-    <div className="pw-scrim" onClick={(e) => e.target === e.currentTarget && onCancel()}>
-      <form className="pw-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} onSubmit={submit}>
+    <dialog
+      ref={dialogRef}
+      className="pw-sheet"
+      aria-labelledby={titleId}
+      onCancel={(e) => {
+        e.preventDefault();
+        onCancelRef.current();
+      }}
+      onClick={(e) => e.target === e.currentTarget && onCancel()}
+    >
+      <form className="pw-sheet-form" onSubmit={submit}>
         <h2 id={titleId} className="pw-title">
           {title}
         </h2>
@@ -507,7 +518,7 @@ export function ConfirmSheet(props: {
           </button>
         </div>
       </form>
-    </div>,
+    </dialog>,
     document.body,
   );
 }
