@@ -234,7 +234,7 @@ export function Orders({ snapshot, stale }: ScreenProps) {
                     <td className="pw-r pw-hide-phone">{qty(o.filledQty)}</td>
                     <td className="pw-r pw-hide-phone">{o.filledAvgPrice === null ? '' : money(o.filledAvgPrice)}</td>
                     <td className={`pw-small pw-caps ${ORDER_STATE[orderState(o.status)]}`}>{o.status.replaceAll('_', ' ')}</td>
-                    <td className={`pw-hide-phone ${o.strategyId ? '' : 'pw-muted'}`} translate="no">
+                    <td className={`pw-hide-phone ${o.strategyId ? '' : 'pw-muted'}`} translate={o.strategyId ? 'no' : undefined}>
                       {o.strategyId ?? 'manual'}
                     </td>
                   </tr>

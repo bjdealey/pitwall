@@ -482,9 +482,7 @@ export function ConfirmSheet(props: {
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
-  const onCancelRef = useRef(onCancel);
-  onCancelRef.current = onCancel;
-  // Parents re-render every second with a fresh onCancel; opening once keeps focus where the user put it.
+  // Opens once: parents re-render every second, and reopening would steal focus from the passcode field.
   // Layout cleanup closes the dialog before React removes it, so the browser returns focus to the trigger.
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
@@ -503,7 +501,7 @@ export function ConfirmSheet(props: {
       aria-labelledby={titleId}
       onCancel={(e) => {
         e.preventDefault();
-        onCancelRef.current();
+        onCancel();
       }}
       onClick={(e) => e.target === e.currentTarget && onCancel()}
     >
