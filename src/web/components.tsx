@@ -26,8 +26,8 @@ export function trackStatus(input: { strategies: Strategy[]; market: MarketSessi
   const first = halted[0];
   if (first) return { kind: 'red', text: `${count(halted.length, 'strategy', 'strategies')} halted at ${localClock(first.at)}.`, detail: first.reason, review: true };
   if (stale) {
-    const age = Number.isFinite(heartbeatAgeMs) ? `for ${duration(heartbeatAgeMs / 1000)}` : 'yet';
-    return { kind: 'yellow', text: `No engine data ${age}.`, detail: 'Figures are frozen. Stop still works.' };
+    if (!Number.isFinite(heartbeatAgeMs)) return { kind: 'yellow', text: 'No engine data yet.', detail: 'Figures are frozen. Stop still works.' };
+    return { kind: 'yellow', text: 'No engine data.', detail: `Last heartbeat ${duration(heartbeatAgeMs / 1000)} ago. Figures are frozen. Stop still works.` };
   }
   if (strategies.length > 0 && paused === strategies.length) return { kind: 'yellow', text: 'All strategies paused.', detail: 'Nothing trades until you turn one back on.', review: true };
   if (paused > 0) return { kind: 'yellow', text: `${paused} of ${count(strategies.length, 'strategy', 'strategies')} paused.`, review: true };
@@ -56,10 +56,10 @@ export function FlagIcon({ kind }: { kind: FlagKind }) {
 
 export function TrackBand({ status }: { status: TrackStatus }) {
   return (
-    <div className={`pw-track pw-track-${status.kind}`} role={status.kind === 'red' ? 'alert' : 'status'}>
+    <div className={`pw-track pw-track-${status.kind}`}>
       <FlagIcon kind={status.kind} />
       <p className="pw-track-text pw-label">
-        <strong>{status.text}</strong>
+        <strong role="status">{status.text}</strong>
         {status.detail && <span className="pw-track-detail"> {status.detail}</span>}
       </p>
       {status.review && (
