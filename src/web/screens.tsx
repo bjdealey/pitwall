@@ -65,8 +65,8 @@ export function Overview({ snapshot, stale, heartbeatAgeMs, openPauseAll }: Scre
       </div>
 
       <div className="pw-ov-screens">
-        <Screen title={`Positions, ${positions.length} open`} flush aside={<ScreenLink href="#/positions">All positions</ScreenLink>}>
-          {positions.length ? <PositionsTable positions={positions} compact /> : <Empty title="No open positions.">Strategies open them on their next signal while the market is open.</Empty>}
+        <Screen title={`Positions, ${positions.length} open`} flush className="pw-ov-positions" aside={<ScreenLink href="#/positions">All positions</ScreenLink>}>
+          {positions.length ? <PositionsTable positions={positions} /> : <Empty title="No open positions.">Strategies open them on their next signal while the market is open.</Empty>}
         </Screen>
         <Screen title="Limits">
           {limits.map((l) => (
@@ -142,12 +142,11 @@ export function PauseAllSheet({ snapshot, onClose }: { snapshot: Snapshot | null
   );
 }
 
-function PositionsTable({ positions, compact = false }: { positions: Position[]; compact?: boolean }) {
+function PositionsTable({ positions }: { positions: Position[] }) {
   const lastQty = useRef(new Map<string, number>());
   useEffect(() => {
     lastQty.current = new Map(positions.map((p) => [p.symbol, p.qty]));
   });
-  const extra = compact ? 'pw-hide' : 'pw-hide-phone';
   return (
     <div className="pw-table-wrap">
       <table className="pw-table">
@@ -155,10 +154,10 @@ function PositionsTable({ positions, compact = false }: { positions: Position[];
           <tr>
             <th>Symbol</th>
             <th className="pw-r">Qty</th>
-            <th className={`pw-r ${extra}`}>Avg</th>
+            <th className="pw-r pw-hide-phone">Avg</th>
             <th className="pw-r">Last</th>
             <th className="pw-r">P&amp;L</th>
-            <th className={`pw-r ${extra}`}>P&amp;L %</th>
+            <th className="pw-r pw-hide-phone">P&amp;L %</th>
           </tr>
         </thead>
         <tbody className="pw-figure">
@@ -171,12 +170,12 @@ function PositionsTable({ positions, compact = false }: { positions: Position[];
                   {p.symbol}
                 </td>
                 <td className="pw-r">{qty(p.qty)}</td>
-                <td className={`pw-r ${extra}`}>{money(p.avgEntryPrice)}</td>
+                <td className="pw-r pw-hide-phone">{money(p.avgEntryPrice)}</td>
                 <td className="pw-r">{money(p.lastPrice)}</td>
                 <td className="pw-r">
                   <SignedMoney value={p.unrealizedPl} />
                 </td>
-                <td className={`pw-r ${extra} ${toneClass[t]}`}>{`${signedPct(p.unrealizedPlPct)} ${glyph(t)}`.trim()}</td>
+                <td className={`pw-r pw-hide-phone ${toneClass[t]}`}>{`${signedPct(p.unrealizedPlPct)} ${glyph(t)}`.trim()}</td>
               </tr>
             );
           })}

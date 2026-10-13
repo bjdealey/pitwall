@@ -82,7 +82,7 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
   - previous close and day high
   
   Beside the board, the day's trace sits against the previous close.
-- **Right, below:** three screens (Positions, Limits and Account), then Events.
+- **Right, below:** Positions across the full width, then Limits and Account side by side, then Events.
 
 **Below 1100px** everything stacks: board, tower, screens, events.
 
@@ -90,6 +90,7 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
 
 - The tabs move to a bottom tab bar (`tabbar-h`).
 - The market chip shows its state only.
+- Positions, Limits and Account stack in one column.
 - Event rows stack: time and severity first, then the message.
 
 Anything you tap is at least `tap-min` tall.
