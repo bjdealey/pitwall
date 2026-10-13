@@ -270,11 +270,12 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-state-enter { display: inline-block; animation: pw-state-in 280ms cubic-bezier(.16, 1, .3, 1) both; }
 @keyframes pw-state-in { from { opacity: 0; transform: scale(.8); } }
 
-.pw-event-new { animation: pw-arrive 1600ms cubic-bezier(.16, 1, .3, 1) both; }
-@keyframes pw-arrive { 0% { opacity: 0; transform: translateY(-4px); background: var(--surface-2); } 15% { opacity: 1; transform: none; } 100% { background: transparent; } }
+.pw-event-new { position: relative; isolation: isolate; animation: pw-drop-in 240ms cubic-bezier(.16, 1, .3, 1) both; }
+.pw-event-new::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--surface-2); pointer-events: none; animation: pw-fade-out 1600ms cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes pw-drop-in { from { opacity: 0; transform: translateY(-4px); } }
 
-.pw-table tr.pw-changed td { animation: pw-tint 600ms ease-out; }
-@keyframes pw-tint { from { background: var(--border); } }
+.pw-table tr.pw-changed td { position: relative; isolation: isolate; }
+.pw-table tr.pw-changed td::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--border); pointer-events: none; animation: pw-fade-out 600ms ease-out both; }
 
 .pw-sheet { animation: pw-rise-in 200ms cubic-bezier(.16, 1, .3, 1) both; }
 .pw-stat-value, .pw-delta, .pw-table td, .pw-trace { transition: color 300ms ease-out; }
@@ -282,10 +283,9 @@ button:disabled { cursor: default; opacity: .6; }
 @media (prefers-reduced-motion: reduce) {
   .pw-sheet, .pw-state-enter { animation-name: pw-fade-in; }
   .pw-pulse-ring { animation-name: pw-glow; }
-  .pw-event-new { animation-name: pw-arrive-still; }
+  .pw-event-new { animation: none; }
   .pw-btn { transition-property: background-color, border-color; }
   .pw-btn:active:not(:disabled), .pw-btn.pw-holding { transform: none; }
   .pw-btn .pw-hold, .pw-switch::after { transition: none; }
 }
 @keyframes pw-glow { from { opacity: .5; } to { opacity: 0; } }
-@keyframes pw-arrive-still { from { background: var(--surface-2); } to { background: transparent; } }
