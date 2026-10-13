@@ -98,6 +98,7 @@
   --tabbar-h: 56px;
   --banner-h: 24px;
   --chip-h: 24px;
+  --rail-w: 224px;
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
@@ -109,6 +110,8 @@
 .pw-label { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 500; }
 
 .pw-caption { font-family: var(--font-sans); font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; }
+
+.pw-figure-hero { font-family: var(--font-mono); font-size: 48px; line-height: 52px; font-weight: 500; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 
 .pw-figure-xl { font-family: var(--font-mono); font-size: 36px; line-height: 40px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 
