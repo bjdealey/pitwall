@@ -8,7 +8,7 @@ import { commandSchema, type Account, type Health, type Mode, type Position, typ
 import { openDb } from '../shared/db.ts';
 import { engineEnvSchema, parseEnv } from '../shared/env.ts';
 import { atET, et } from '../shared/et.ts';
-import { money, qty } from '../shared/format.ts';
+import { duration, money, qty } from '../shared/format.ts';
 import { isOpenOrder } from '../shared/orders.ts';
 import * as t from '../shared/schema.ts';
 import { AlpacaBroker } from './alpaca-broker.ts';
@@ -43,9 +43,13 @@ let lastBrokerOkAt = new Date();
 let consecutiveRejections = 0;
 let latest: { account: Account; positions: Position[]; clock: Clock; orders: BrokerOrder[] } | null = null;
 let lastPruneAt = 0;
+let lastTickAt = Date.now();
 const recentErrors = new Map<string, number>();
 
-const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
+const message = (err: unknown) => {
+  if (err instanceof Error && err.name === 'TimeoutError') return 'no reply within 10s.';
+  return err instanceof Error ? err.message : String(err);
+};
 const strategyOf = (o: BrokerOrder) => strategyIds.get(strategyPrefix(o.clientOrderId)) ?? null;
 
 function logEvent(severity: Severity, text: string, source: string) {
@@ -128,6 +132,15 @@ async function runStrategies(now: Date, view: NonNullable<typeof latest>) {
 async function tick() {
   const now = new Date();
   const iso = now.toISOString();
+  // A gap far past the tick interval means this process was suspended (laptop
+  // sleep, SIGSTOP). Broker silence is measured from here so the engine's own
+  // absence never reads as a broker outage.
+  const gapMs = now.getTime() - lastTickAt;
+  lastTickAt = now.getTime();
+  if (gapMs > TICK_MS * 3) {
+    lastBrokerOkAt = now;
+    logEvent('info', `Engine resumed after a ${duration(gapMs / 1000)} pause.`, 'engine');
+  }
 
   const pending = db.select().from(t.commands).where(gt(t.commands.id, commandCursor)).orderBy(asc(t.commands.id)).all();
   for (const row of pending) {
