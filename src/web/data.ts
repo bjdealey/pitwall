@@ -1,8 +1,8 @@
-import { startTransition, useActionState, useEffect, useState } from 'react';
+import { startTransition, useActionState, useEffect, useEffectEvent, useState } from 'react';
 import type { Command, Snapshot } from '../shared/domain.ts';
 
 const STREAM_STALE_MS = 3_000;
-const HEARTBEAT_STALE_MS = 15_000;
+export const HEARTBEAT_STALE_MS = 15_000;
 
 // serverTime and receivedAt sit beside the snapshot so a tick moves them without giving the snapshot a new identity.
 export type Feed = { snapshot: Snapshot; serverTime: string; receivedAt: number };
@@ -10,9 +10,16 @@ export type Feed = { snapshot: Snapshot; serverTime: string; receivedAt: number 
 /** One EventSource for the whole app. Calls onSignedOut when the stream closes because the session is gone. */
 export function useSnapshot(onSignedOut: () => void): Feed | null {
   const [feed, setFeed] = useState<Feed | null>(null);
+  const signOut = useEffectEvent(onSignedOut);
   useEffect(() => {
     let source: EventSource | undefined;
     let retry: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+    const retryOrSignOut = (status?: number) => {
+      if (disposed) return;
+      if (status === 401) signOut();
+      else retry = setTimeout(open, 3_000);
+    };
     const open = () => {
       source = new EventSource('/api/stream');
       source.addEventListener('snapshot', (e: MessageEvent<string>) => {
@@ -23,17 +30,18 @@ export function useSnapshot(onSignedOut: () => void): Feed | null {
       source.onerror = () => {
         if (source?.readyState !== EventSource.CLOSED) return;
         fetch('/api/session').then(
-          (r) => (r.status === 401 ? onSignedOut() : (retry = setTimeout(open, 3_000))),
-          () => (retry = setTimeout(open, 3_000)),
+          (r) => retryOrSignOut(r.status),
+          () => retryOrSignOut(),
         );
       };
     };
     open();
     return () => {
+      disposed = true;
       source?.close();
       clearTimeout(retry);
     };
-  }, [onSignedOut]);
+  }, []);
   return feed;
 }
 
@@ -55,6 +63,8 @@ export function freshness({ snapshot, serverTime, receivedAt }: Feed, now: numbe
 
 export type PostResult = { ok: true } | { ok: false; error: string };
 
+const UNREACHABLE = 'Pitwall API unreachable. Check the Pi is on and Tailscale is connected.';
+
 const lockedMessage = (iso: string) =>
   `Too many wrong passcodes. Locked until ${new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}.`;
 
@@ -63,22 +73,24 @@ export async function postJson(url: string, body: unknown): Promise<PostResult> 
   try {
     res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   } catch {
-    return { ok: false, error: 'Pitwall API unreachable. Check the Pi is on and Tailscale is connected.' };
+    return { ok: false, error: UNREACHABLE };
   }
   if (res.ok) return { ok: true };
   const data: { error?: unknown; lockedUntil?: unknown } = await res.json().catch(() => ({}));
   if (typeof data.lockedUntil === 'string') return { ok: false, error: lockedMessage(data.lockedUntil) };
-  return { ok: false, error: typeof data.error === 'string' ? data.error : `Request failed (${res.status}).` };
+  if (typeof data.error === 'string') return { ok: false, error: data.error };
+  // The dev proxy and tailscale serve answer 502 to 504 when the API process is down.
+  return { ok: false, error: res.status >= 502 && res.status <= 504 ? UNREACHABLE : `Request failed (${res.status}).` };
 }
 
-/** A POST run as a React action: busy while in flight, the error it returned, and onOk once it succeeds. */
+/** A POST run as a React action: busy while in flight, the error it returned, and onOk once it succeeds. attempt counts finished tries, so the same error twice still re-announces. */
 export function usePost(post: () => Promise<PostResult>, onOk: () => void) {
-  const [error, run, busy] = useActionState<string | null>(async () => {
+  const [state, run, busy] = useActionState<{ error: string | null; attempt: number }>(async ({ attempt }) => {
     const result = await post();
     if (result.ok) onOk();
-    return result.ok ? null : result.error;
-  }, null);
-  return { error, busy, send: () => startTransition(run) };
+    return { error: result.ok ? null : result.error, attempt: attempt + 1 };
+  }, { error: null, attempt: 0 });
+  return { ...state, busy, send: () => startTransition(run) };
 }
 
 export const sendCommand = (command: Command, passcode?: string) => postJson('/api/commands', passcode === undefined ? command : { ...command, passcode });

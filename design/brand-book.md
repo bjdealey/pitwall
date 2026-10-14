@@ -57,7 +57,7 @@ There are two themes. **Timing screen** (dark, the default) is an LED gantry: as
 
 One variable family, **Archivo**, self-hosted from `@fontsource-variable/archivo` with its width axis. Its width carries the voice:
 
-- **Condensed (75%)** is timing type. `hero` (72px) is the equity figure on the pit board. `board` (36px) is today's change. `timing` (16px) is the tower and the nav.
+- **Condensed (75%)** is timing type. `hero` (up to 72px) is the equity figure on the pit board; it scales with the slat and the figure's length, so a seven-figure balance still fits a 320px phone. `board` (36px) is today's change. `timing` (16px) is the tower and the nav.
 - **Normal width** is for sentences. `body` (16px) holds event messages and dialog copy. `label` (14px) is for buttons, field labels and screen titles. `small` (12px) holds times, symbols, sources and status values.
 - **Semi-condensed (87.5%).** `title` (21px) for the tower heading and dialogs, and `figure` (14px) for figures in lists and tables.
 - **Expanded (125%).** `wordmark` is the PITWALL wordmark, the one wide thing against all the condensed timing.
@@ -93,7 +93,7 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
 - Positions, Limits and Account stack in one column.
 - Event rows stack: time and severity first, then the message.
 
-Anything you tap is at least `tap-min` tall.
+Anything you tap is at least `tap-min` tall. Small text links (Review strategies, All positions, Full log) keep their size and get a `tap-min` hit area around them.
 
 The side gutter is 24px on desktop and 16px below 900px, and never less than the device's safe-area inset, so a phone held sideways keeps the notch clear of the band, the gantry and the page. The tab bar pads for the home indicator.
 
@@ -115,12 +115,12 @@ Motion reports something or it does not run. Prices never flash on ticks. The wh
 - **Track band.** Its colour crossfades (400ms) when the session state changes.
 - **Screen change.** The active tab bar slides to the new tab (280ms) while the page fades and rises 6px (240ms), using View Transitions where the browser has them.
 - **Hold to flatten.** The fill tracks the 2s press, the button settles to 98.5%, the label reads "Keep holding…", and an early release eases the fill back (240ms).
-- **Pending command.** A strategy switch pulses its knob while the engine applies the command.
+- **Pending command.** A strategy switch pulses its knob while the engine applies the command. It stays focusable (`aria-disabled`, not `disabled`), so focus is never lost and a stale engine never locks it.
 - **State change.** When a strategy's state changes, its status value pops in and its tower row flashes the state colour once (1.4s).
 - **New event.** A newly arrived event row tints and settles (1.6s).
 - **Feedback.** Buttons press to 98%. Dialogs fade and rise (200ms) over a backdrop that fades in (160ms). Figures fade to `muted` when stale (300ms). A position row tints when its quantity changes (600ms).
 
-Easing is `cubic-bezier(.16, 1, .3, 1)` for arrivals, and exits run faster than entrances. Motion animates `transform` and `opacity` only: row tints and flashes are a layer behind the row that fades out, never an animated background. Under `prefers-reduced-motion` nothing moves: entrances become fades, the pulse becomes a glow, row tints stay, and the hold fill still tracks the press.
+Easing is `cubic-bezier(.16, 1, .3, 1)` for arrivals, and exits run faster than entrances. Moving things animate `transform` and `opacity` only: row tints and flashes are a layer behind the row that fades out, never an animated background. Colour changes on the track band and on controls may crossfade. Under `prefers-reduced-motion` nothing moves: entrances become fades, the pulse becomes a glow, row tints stay, and the hold fill still tracks the press.
 
 ## States
 

@@ -5,6 +5,8 @@ const formatter = (options: Intl.NumberFormatOptions) => {
   return (n: number) => f.format(n).replace('-', MINUS);
 };
 
+export const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
 export type Tone = 'up' | 'down' | 'flat';
 
 export function tone(n: number): Tone {

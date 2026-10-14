@@ -2,7 +2,7 @@ import '@fontsource-variable/archivo/wdth.css';
 import './tokens.css';
 import './pitwall.css';
 import { Activity, ArrowLeftRight, Briefcase, Gauge, Layers, OctagonX } from 'lucide-react';
-import { StrictMode, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { StrictMode, useEffect, useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { HeartbeatAgeContext, MarketChip, ModeStrip, PasscodeInput, TrackBand, trackStatus } from './components.tsx';
@@ -96,7 +96,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
 
 function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   const [passcode, setPasscode] = useState('');
-  const { error, busy, send } = usePost(() => postJson('/api/login', { passcode }), onSignedIn);
+  const { error, attempt, busy, send } = usePost(() => postJson('/api/login', { passcode }), onSignedIn);
   const submit = (e: FormEvent) => {
     e.preventDefault();
     send();
@@ -108,7 +108,7 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
         <h1 className="pw-wordmark" translate="no">
           PITWALL
         </h1>
-        <PasscodeInput value={passcode} onChange={setPasscode} error={error} help="Sign in to watch and stop the bot." />
+        <PasscodeInput value={passcode} onChange={setPasscode} error={error} attempt={attempt} help="Sign in to watch and stop the bot." />
         <button type="submit" className="pw-btn pw-btn-primary" disabled={busy}>
           {busy ? 'Checking…' : 'Sign in'}
         </button>
@@ -120,15 +120,20 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
 function App() {
   const [session, setSession] = useState<'checking' | 'in' | 'out'>('checking');
   useEffect(() => {
-    fetch('/api/session').then(
+    fetch('/api/session', { signal: AbortSignal.timeout(5_000) }).then(
       (r) => setSession(r.ok ? 'in' : 'out'),
       () => setSession('out'),
     );
   }, []);
-  const signedOut = useCallback(() => setSession('out'), []);
-  if (session === 'checking') return <ModeStrip mode={null} />;
+  if (session === 'checking')
+    return (
+      <div className="pw-login">
+        <ModeStrip mode={null} />
+        <p className="pw-login-board pw-label pw-muted">Checking your session…</p>
+      </div>
+    );
   if (session === 'out') return <SignIn onSignedIn={() => setSession('in')} />;
-  return <Shell onSignedOut={signedOut} />;
+  return <Shell onSignedOut={() => setSession('out')} />;
 }
 
 const root = document.getElementById('root');

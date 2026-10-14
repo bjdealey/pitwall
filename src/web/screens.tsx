@@ -1,7 +1,7 @@
 import { Pause } from 'lucide-react';
 import { memo, useEffect, useRef, useState } from 'react';
 import type { Position, Snapshot } from '../shared/domain.ts';
-import { etClock, glyph, money, qty, signedPct, tone } from '../shared/format.ts';
+import { count, etClock, glyph, money, qty, signedPct, tone } from '../shared/format.ts';
 import { isOpenOrder } from '../shared/orders.ts';
 import {
   collapseEvents,
@@ -23,8 +23,6 @@ import {
 import { sendCommand, usePost } from './data.ts';
 
 export type ScreenProps = { snapshot: Snapshot; stale: boolean };
-
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 const ScreenLink = ({ href, children }: { href: string; children: string }) => (
   <a className="pw-screen-link pw-small" href={href}>
@@ -67,7 +65,7 @@ export const Overview = memo(function Overview({ snapshot, stale }: ScreenProps)
 
       <div className="pw-ov-screens">
         <Screen title={`Positions, ${positions.length} open`} flush className="pw-ov-positions" aside={<ScreenLink href="#/positions">All positions</ScreenLink>}>
-          {positions.length ? <PositionsTable positions={positions} /> : <Empty title="No open positions.">Strategies open them on their next signal while the market is open.</Empty>}
+          <PositionsTable positions={positions} />
         </Screen>
         <Screen title="Limits">
           {limits.map((l) => (
@@ -87,7 +85,7 @@ export const Overview = memo(function Overview({ snapshot, stale }: ScreenProps)
 
       <div className="pw-ov-events">
         <Screen title="Events" flush aside={<ScreenLink href="#/events">Full log</ScreenLink>}>
-          {latest.length ? <EventLog events={latest} fresh={arrived} /> : <Empty title="No events yet." />}
+          {latest.length ? <EventLog events={latest} fresh={arrived} /> : <Empty title="No events yet.">Halts, errors, fills and your own actions land here.</Empty>}
         </Screen>
       </div>
 
@@ -101,7 +99,7 @@ const openOrdersLine = (snapshot: Snapshot | null) => (snapshot ? `Cancels ${cou
 
 function FlattenSheet({ snapshot, onClose }: { snapshot: Snapshot; onClose: () => void }) {
   const [passcode, setPasscode] = useState('');
-  const { error, busy, send } = usePost(() => sendCommand({ kind: 'flatten' }, passcode), onClose);
+  const { error, attempt, busy, send } = usePost(() => sendCommand({ kind: 'flatten' }, passcode), onClose);
   return (
     <ConfirmSheet title="Flatten all positions?" confirmLabel="Flatten" confirmClass="pw-btn-danger" busy={busy} onConfirm={send} onCancel={onClose}>
       <ul>
@@ -109,15 +107,15 @@ function FlattenSheet({ snapshot, onClose }: { snapshot: Snapshot; onClose: () =
         <li>{openOrdersLine(snapshot)}</li>
         <li>{`Closes ${count(snapshot.positions.length, 'position')} at market.`}</li>
       </ul>
-      <PasscodeInput value={passcode} onChange={setPasscode} error={error} help="Flatten always asks for the passcode." />
+      <PasscodeInput value={passcode} onChange={setPasscode} error={error} attempt={attempt} help="Flatten always asks for the passcode." />
     </ConfirmSheet>
   );
 }
 
 export function PauseAllSheet({ snapshot, onClose }: { snapshot: Snapshot | null; onClose: () => void }) {
-  const { error, busy, send } = usePost(() => sendCommand({ kind: 'pause-all' }), onClose);
+  const { error, attempt, busy, send } = usePost(() => sendCommand({ kind: 'pause-all' }), onClose);
   return (
-    <ConfirmSheet title="Pause all strategies?" confirmLabel="Pause all" confirmClass="pw-btn-danger" busy={busy} error={error} onConfirm={send} onCancel={onClose}>
+    <ConfirmSheet title="Pause all strategies?" confirmLabel="Pause all" confirmClass="pw-btn-danger" busy={busy} error={error} attempt={attempt} onConfirm={send} onCancel={onClose}>
       <ul>
         <li>{snapshot ? `Stops new orders from ${count(snapshot.strategies.filter((s) => s.state.kind === 'running').length, 'running strategy', 'running strategies')}.` : 'Stops new orders from every strategy.'}</li>
         <li>{openOrdersLine(snapshot)}</li>
@@ -132,6 +130,7 @@ function PositionsTable({ positions }: { positions: Position[] }) {
   useEffect(() => {
     lastQty.current = new Map(positions.map((p) => [p.symbol, p.qty]));
   });
+  if (positions.length === 0) return <Empty title="No open positions.">Strategies open them on their next signal while the market is open.</Empty>;
   return (
     <div className="pw-table-wrap">
       <table className="pw-table">
@@ -176,14 +175,13 @@ export const Positions = memo(function Positions({ snapshot, stale }: ScreenProp
   return (
     <div className={`pw-page ${stale ? 'pw-is-stale' : ''}`}>
       <Screen title={`${count(positions.length, 'open position')}`} flush>
-        {positions.length ? <PositionsTable positions={positions} /> : <Empty title="No open positions.">Strategies open them on their next signal while the market is open.</Empty>}
+        <PositionsTable positions={positions} />
       </Screen>
     </div>
   );
 });
 
-const ORDER_STATE: Record<'rejected' | 'open' | 'done', string> = { rejected: 'pw-sev-error', open: 'pw-sev-warn', done: 'pw-sev-info' };
-const orderState = (status: string) => (status === 'rejected' ? 'rejected' : isOpenOrder({ status }) ? 'open' : 'done');
+const orderClass = (status: string) => (status === 'rejected' ? 'pw-sev-error' : isOpenOrder({ status }) ? 'pw-sev-warn' : 'pw-sev-info');
 
 export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
   const { orders } = snapshot;
@@ -219,7 +217,7 @@ export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
                     <td className="pw-r">{qty(o.qty)}</td>
                     <td className="pw-r pw-hide-phone">{qty(o.filledQty)}</td>
                     <td className="pw-r pw-hide-phone">{o.filledAvgPrice === null ? '' : money(o.filledAvgPrice)}</td>
-                    <td className={`pw-small pw-caps ${ORDER_STATE[orderState(o.status)]}`}>{o.status.replaceAll('_', ' ')}</td>
+                    <td className={`pw-small pw-caps ${orderClass(o.status)}`}>{o.status.replaceAll('_', ' ')}</td>
                     <td className={`pw-hide-phone ${o.strategyId ? '' : 'pw-muted'}`} translate={o.strategyId ? 'no' : undefined}>
                       {o.strategyId ?? 'manual'}
                     </td>
@@ -234,9 +232,9 @@ export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
   );
 });
 
-export const Strategies = memo(function Strategies({ snapshot }: ScreenProps) {
+export const Strategies = memo(function Strategies({ snapshot, stale }: ScreenProps) {
   return (
-    <div className="pw-page pw-page-narrow">
+    <div className={`pw-page pw-page-narrow ${stale ? 'pw-is-stale' : ''}`}>
       <TimingTower strategies={snapshot.strategies} />
     </div>
   );

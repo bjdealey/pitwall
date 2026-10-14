@@ -1,16 +1,19 @@
-import { createContext, use, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { createContext, use, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Account, EventRecord, Health, Limit, MarketSession, Mode, Severity, Strategy, StrategyState } from '../shared/domain.ts';
 import { et } from '../shared/et.ts';
-import { changePercent, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
-import { sendCommand, usePost } from './data.ts';
+import { changePercent, count, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
+import { HEARTBEAT_STALE_MS, sendCommand, usePost } from './data.ts';
 
 export const toneClass: Record<Tone, string> = { up: 'pw-up', down: 'pw-down', flat: 'pw-flat' };
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
 export function ModeStrip({ mode }: { mode: Mode | null }) {
-  if (!mode) return <div className="pw-mode pw-mode-neutral pw-small">Pitwall</div>;
+  if (!mode)
+    return (
+      <div className="pw-mode pw-mode-neutral pw-small" translate="no">
+        Pitwall
+      </div>
+    );
   return <div className={`pw-mode pw-mode-${mode} pw-small`}>{mode === 'paper' ? 'Paper trading. No real money.' : 'Live trading with real money.'}</div>;
 }
 
@@ -19,7 +22,7 @@ export type TrackStatus = { kind: FlagKind; text: string; detail?: string; revie
 
 /** The one line that says how the session is going, in flag terms a pit wall would use. */
 export function trackStatus(input: { strategies: Strategy[]; market: MarketSession; stale: boolean; heartbeatAgeMs: number } | null): TrackStatus {
-  if (!input) return { kind: 'none', text: 'Connecting to the engine.' };
+  if (!input) return { kind: 'none', text: 'Connecting to the engine…' };
   const { strategies, market, stale, heartbeatAgeMs } = input;
   const halted = strategies.flatMap((s) => (s.state.kind === 'halted' ? [s.state] : []));
   const paused = strategies.filter((s) => s.state.kind === 'paused').length;
@@ -143,7 +146,9 @@ export function PitBoard({ account, points, stale }: { account: Account; points:
       <div className="pw-slats">
         <div className="pw-slat pw-slat-hero">
           <span className="pw-small pw-slat-label">Equity</span>
-          <span className="pw-hero pw-stat-value">{money(account.equity)}</span>
+          <span className="pw-hero pw-stat-value" style={{ '--chars': money(account.equity).length } as CSSProperties}>
+            {money(account.equity)}
+          </span>
         </div>
         <div className="pw-slat pw-slat-change">
           <span className={`pw-board pw-delta ${toneClass[t]}`}>{t === 'flat' ? money(0) : signedMoney(change)}</span>
@@ -189,7 +194,7 @@ function EquityTrace({ points, baseline, high, stale }: { points: { at: string; 
   const baseY = y(baseline);
   const moved = Math.max(...values) > Math.min(...values);
   return (
-    <figure className={`pw-trace ${toneClass[stale ? 'flat' : tone(last.equity - baseline)]}`}>
+    <figure className={`pw-trace ${toneClass[stale ? 'flat' : tone(last.equity - baseline)]}`} aria-hidden>
       <div className="pw-trace-plot">
         <svg viewBox={`0 0 ${TRACE_W} ${TRACE_H}`} preserveAspectRatio="none" aria-hidden>
           {moved && <polygon className="pw-trace-area" points={`0,${baseY} ${line} ${TRACE_W},${baseY}`} />}
@@ -252,7 +257,7 @@ export function SystemReadout({ health, heartbeatAt }: { health: Health; heartbe
     {
       label: (
         <>
-          <Pulse beat={heartbeatAt} live={heartbeatAgeMs <= 15_000} /> Engine
+          <Pulse beat={heartbeatAt} live={heartbeatAgeMs <= HEARTBEAT_STALE_MS} /> Engine
         </>
       ),
       value: Number.isFinite(heartbeatAgeMs) ? `${duration(heartbeatAgeMs / 1000)} ago` : 'silent',
@@ -268,7 +273,7 @@ export function SystemReadout({ health, heartbeatAt }: { health: Health; heartbe
   ];
   if (cpu !== null) cells.push({ label: <>{warnLight(Boolean(health.throttled) || cpu >= 75)} CPU</>, value: `${cpu.toFixed(0)}°C${health.throttled ? ' throttled' : ''}` });
   if (disk !== null) cells.push({ label: <>{warnLight(disk >= 80, disk >= 95 ? 'neg' : 'warn')} Disk</>, value: pct(disk) });
-  cells.push({ label: 'Memory', value: `${(health.memUsedBytes / GB).toFixed(1)} of ${(health.memTotalBytes / GB).toFixed(0)} GB` }, { label: 'Uptime', value: duration(health.uptimeS) });
+  cells.push({ label: 'Memory', value: `${(health.memUsedBytes / GB).toFixed(1)} of ${(health.memTotalBytes / GB).toFixed(0)}\u00a0GB` }, { label: 'Uptime', value: duration(health.uptimeS) });
   return (
     <dl className="pw-system" aria-label="System">
       {cells.map((c, i) => (
@@ -285,9 +290,13 @@ const STATE_WORD: Record<StrategyState['kind'], string> = { running: 'RUNNING', 
 
 function TowerRow({ position, strategy, best, busy, onToggle }: { position: number; strategy: Strategy; best: boolean; busy: boolean; onToggle: () => void }) {
   const { id, symbol, state, todayPl, fillsToday } = strategy;
-  const firstKind = useRef(state.kind);
-  const changed = firstKind.current !== state.kind;
-  const t = tone(todayPl);
+  // Flash and pop only after a change seen on screen, not on first paint.
+  const [shownKind, setShownKind] = useState(state.kind);
+  const [changed, setChanged] = useState(false);
+  if (shownKind !== state.kind) {
+    setShownKind(state.kind);
+    setChanged(true);
+  }
   return (
     <li className={`pw-tower-row pw-state-${state.kind}`}>
       {changed && <span key={state.kind} className={`pw-row-flash pw-row-flash-${state.kind}`} aria-hidden />}
@@ -295,9 +304,9 @@ function TowerRow({ position, strategy, best, busy, onToggle }: { position: numb
       <span className="pw-tower-id pw-timing" translate="no">
         {id}
       </span>
-      <span className={`pw-tower-gap pw-timing pw-delta ${best ? 'pw-best' : toneClass[t]}`}>{`${signedMoney(todayPl)} ${glyph(t)}`.trim()}</span>
+      <SignedMoney value={todayPl} className={`pw-tower-gap pw-timing ${best ? 'pw-best' : ''}`} />
       <label className="pw-switch-hit">
-        <input type="checkbox" role="switch" className="pw-switch" checked={state.kind === 'running'} disabled={busy} aria-label={`${id} running`} onChange={onToggle} />
+        <input type="checkbox" role="switch" className="pw-switch" checked={state.kind === 'running'} aria-disabled={busy || undefined} aria-label={`${id} running`} onChange={() => busy || onToggle()} />
       </label>
       <span className="pw-tower-meta pw-small">
         <span key={state.kind} className={`pw-state pw-state-chip-${state.kind} ${changed ? 'pw-state-enter' : ''}`}>
@@ -333,18 +342,20 @@ export function TimingTower({ strategies, footer }: { strategies: Strategy[]; fo
       setError(result.error);
     }
   };
-  const closeResume = useCallback(() => setResuming(null), []);
+  const titleId = useId();
 
   return (
-    <section className="pw-tower" aria-labelledby="tower-title" id="strategies">
+    <section className="pw-tower" aria-labelledby={titleId}>
       <header className="pw-tower-head">
-        <h2 id="tower-title" className="pw-title">
+        <h2 id={titleId} className="pw-title">
           Strategies
         </h2>
         <span className="pw-small pw-muted">ranked by today’s P&amp;L</span>
       </header>
       {ranked.length === 0 ? (
-        <Empty title="No strategies configured.">List them in PITWALL_STRATEGIES in .env.</Empty>
+        <Empty title="No strategies configured.">
+          List them in <span translate="no">PITWALL_STRATEGIES</span> in <span translate="no">.env</span>.
+        </Empty>
       ) : (
         <ol className="pw-tower-list">
           {ranked.map((s, i) => (
@@ -365,13 +376,13 @@ export function TimingTower({ strategies, footer }: { strategies: Strategy[]; fo
         </p>
       )}
       {footer && <div className="pw-tower-foot">{footer}</div>}
-      {resuming && <ResumeSheet strategy={resuming} onClose={closeResume} onSent={() => setPending({ id: resuming.id, kinds })} />}
+      {resuming && <ResumeSheet strategy={resuming} onClose={() => setResuming(null)} onSent={() => setPending({ id: resuming.id, kinds })} />}
     </section>
   );
 }
 
 function ResumeSheet({ strategy, onClose, onSent }: { strategy: Strategy; onClose: () => void; onSent: () => void }) {
-  const { error, busy, send } = usePost(
+  const { error, attempt, busy, send } = usePost(
     () => sendCommand({ kind: 'resume-strategy', strategyId: strategy.id }),
     () => {
       onSent();
@@ -379,9 +390,24 @@ function ResumeSheet({ strategy, onClose, onSent }: { strategy: Strategy; onClos
     },
   );
   return (
-    <ConfirmSheet title={`Resume ${strategy.id}?`} confirmLabel="Resume" confirmClass="pw-btn-primary" busy={busy} error={error} onConfirm={send} onCancel={onClose}>
+    <ConfirmSheet
+      title={
+        <>
+          Resume <span translate="no">{strategy.id}</span>?
+        </>
+      }
+      confirmLabel="Resume"
+      confirmClass="pw-btn-primary"
+      busy={busy}
+      error={error}
+      attempt={attempt}
+      onConfirm={send}
+      onCancel={onClose}
+    >
       {strategy.state.kind === 'halted' && <p>It was halted: {strategy.state.reason}</p>}
-      <p>It trades {strategy.symbol} again on its next signal.</p>
+      <p>
+        It trades <span translate="no">{strategy.symbol}</span> again on its next signal.
+      </p>
     </ConfirmSheet>
   );
 }
@@ -440,12 +466,13 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
   );
 }
 
-export function PasscodeInput({ value, onChange, error, help }: { value: string; onChange: (v: string) => void; error: string | null; help: string }) {
+export function PasscodeInput({ value, onChange, error, attempt = 0, help }: { value: string; onChange: (v: string) => void; error: string | null; attempt?: number; help: string }) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
+  // Refocusing reads the label and the error again, even when the error text has not changed.
   useEffect(() => {
     if (error) input.current?.focus();
-  }, [error]);
+  }, [error, attempt]);
   return (
     <div className="pw-field">
       <label htmlFor={id} className="pw-label">
@@ -457,7 +484,6 @@ export function PasscodeInput({ value, onChange, error, help }: { value: string;
         name="passcode"
         className="pw-input pw-board"
         type="password"
-        inputMode="numeric"
         autoComplete="current-password"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -472,19 +498,21 @@ export function PasscodeInput({ value, onChange, error, help }: { value: string;
 }
 
 export function ConfirmSheet(props: {
-  title: string;
+  title: ReactNode;
   confirmLabel: string;
   confirmClass: string;
   busy: boolean;
   error?: string | null;
+  attempt?: number;
   onConfirm: () => void;
   onCancel: () => void;
   children: ReactNode;
 }) {
-  const { title, confirmLabel, confirmClass, busy, error, onConfirm, onCancel, children } = props;
+  const { title, confirmLabel, confirmClass, busy, error, attempt, onConfirm, onCancel, children } = props;
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const pressedOn = useRef<EventTarget | null>(null);
   // Opens once: parents re-render every second, and reopening would steal focus from the passcode field.
   // Layout cleanup closes the dialog before React removes it, so the browser returns focus to the trigger.
   useLayoutEffect(() => {
@@ -506,7 +534,10 @@ export function ConfirmSheet(props: {
         e.preventDefault();
         onCancel();
       }}
-      onClick={(e) => e.target === e.currentTarget && onCancel()}
+      onPointerDown={(e) => (pressedOn.current = e.target)}
+      // A key still held from Hold to flatten keeps repeating into the sheet; without this it presses Cancel.
+      onKeyDown={(e) => e.repeat && (e.key === 'Enter' || e.key === ' ') && e.preventDefault()}
+      onClick={(e) => e.target === e.currentTarget && pressedOn.current === e.currentTarget && onCancel()}
     >
       <form className="pw-sheet-form" onSubmit={submit}>
         <h2 id={titleId} className="pw-title">
@@ -514,7 +545,7 @@ export function ConfirmSheet(props: {
         </h2>
         <div className="pw-body pw-sheet-body">{children}</div>
         {error && (
-          <p className="pw-help pw-help-error pw-label" role="alert">
+          <p key={attempt} className="pw-help pw-help-error pw-label" role="alert">
             {error}
           </p>
         )}
@@ -575,10 +606,10 @@ export function HoldToFlatten({ onComplete }: { onComplete: () => void }) {
       onPointerCancel={cancel}
       onClick={(e) => e.detail === 0 && onComplete()}
       onKeyDown={(e) => {
-        if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
-          e.preventDefault();
-          start();
-        }
+        if (e.key !== ' ' && e.key !== 'Enter') return;
+        // Repeats must be prevented too, or the browser's own activation clicks through the hold.
+        e.preventDefault();
+        if (!e.repeat) start();
       }}
       onKeyUp={(e) => (e.key === ' ' || e.key === 'Enter') && cancel()}
       onBlur={cancel}
