@@ -2,6 +2,10 @@
 
 Pitwall runs a small trading bot on a Raspberry Pi 5 and gives you a private dashboard to watch it and stop it. The bot trades US equities through Alpaca. The dashboard answers three questions at a glance: is the bot healthy, what does it hold, and how much is it up or down today. It also gives you Pause all, per-strategy pause and resume, and a passcode-guarded Flatten.
 
+**Try the demo:** https://bjdealey.github.io/pitwall/ runs the real dashboard on sample data with a simulated engine in your browser. Pause, resume, Pause all and Flatten all work, and nothing trades: the demo never talks to a broker or a Pi.
+
+![Pitwall Overview on sample data](docs/demo.png)
+
 It is two processes that share one SQLite file:
 
 - `src/engine` runs the strategies, talks to the broker, enforces the risk halts (daily loss, rejected orders in a row, broker silence) and writes everything to SQLite.
@@ -32,6 +36,8 @@ Other scripts:
 - `npm test` runs the `node:test` suites in `src/**/*.test.ts`.
 - `npm run typecheck` checks the Node and the web configs.
 - `npm run build` builds the dashboard into `dist/web`, which the API serves.
+- `npm run build:demo` builds the GitHub Pages demo into `dist/demo`: the same dashboard on sample data, with no API. `.github/workflows/pages.yml` publishes it on every push to `main`.
+- `npm run design-system` renders the components into the design system files in `dist/design-system`.
 - `npm run tokens` regenerates `src/web/tokens.css` from `design/tokens.json`.
 - `npm run db:generate` writes a new migration into `drizzle/` after you change `src/shared/schema.ts`. Both processes apply pending migrations at startup.
 - `npm start` prints how to run the two production processes, `npm run start:engine` and `npm run start:api`.
