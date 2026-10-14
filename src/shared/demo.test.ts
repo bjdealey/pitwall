@@ -8,7 +8,7 @@ const later = (s: number) => new Date(now.getTime() + s * 1000);
 const spy = 'sma-cross-spy' as StrategyId;
 const equityMatchesStrategies = (state: ReturnType<typeof startDemo>) => {
   const { account, strategies } = state.snapshot;
-  return Math.abs(account.equity - (account.lastEquity + strategies.reduce((sum, s) => sum + s.todayPl, 0))) < 0.011;
+  return Math.abs(account.equity - (account.lastEquity + state.unattributed + strategies.reduce((sum, s) => sum + s.todayPl, 0))) < 0.011;
 };
 
 test('the sample snapshot is a calm session four hours in', () => {
@@ -41,6 +41,13 @@ test('flatten needs a passcode, then closes every position and banks its P&L', (
   assert.ok(flat.snapshot.strategies.every((s) => s.state.kind === 'paused'));
   assert.equal(flat.snapshot.account.equity, before.snapshot.account.equity, 'closing at the last price keeps equity');
   assert.ok(equityMatchesStrategies(flat));
+});
+
+test('the first tick moves equity by price drift only, not by the sample\'s unattributed P&L', () => {
+  const start = startDemo(now, 3);
+  assert.ok(equityMatchesStrategies(start), 'the starting sample already adds up');
+  const first = demoTick(start, later(5));
+  assert.ok(Math.abs(first.snapshot.account.equity - start.snapshot.account.equity) < 15, `moved ${first.snapshot.account.equity - start.snapshot.account.equity}`);
 });
 
 test('prices walk the same way for the same seed, and equity always adds up', () => {

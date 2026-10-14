@@ -64,9 +64,12 @@ export function demoSnapshot(now: Date): Snapshot {
 
 /**
  * The demo's stand-in for the engine. Commands queue like rows in the commands table and apply on the next
- * 5-second tick; prices drift on a seeded walk; each strategy's P&L is what it banked plus its open position.
+ * 5-second tick; prices drift on a seeded walk; each strategy's P&L is what it banked plus its open position, and
+ * `unattributed` is the day's P&L from trades no current strategy owns (the sample's manual and halted IWM trades).
  */
-export type DemoState = { snapshot: Snapshot; queue: Command[]; banked: Record<string, number>; seed: number };
+export type DemoState = { snapshot: Snapshot; queue: Command[]; banked: Record<string, number>; unattributed: number; seed: number };
+
+const cents = (n: number) => Math.round(n * 100) / 100;
 
 export type DemoResult = { ok: true } | { ok: false; error: string };
 
@@ -74,7 +77,9 @@ export function startDemo(now: Date, seed = 1): DemoState {
   const snapshot = demoSnapshot(now);
   const unrealized = (symbol: string) => snapshot.positions.find((p) => p.symbol === symbol)?.unrealizedPl ?? 0;
   const banked = Object.fromEntries(snapshot.strategies.map((s) => [s.id, s.todayPl - unrealized(s.symbol)]));
-  return { snapshot, queue: [], banked, seed };
+  const { equity, lastEquity } = snapshot.account;
+  const unattributed = cents(equity - lastEquity - snapshot.strategies.reduce((sum, s) => sum + s.todayPl, 0));
+  return { snapshot, queue: [], banked, unattributed, seed };
 }
 
 export function demoCommand(state: DemoState, command: Command, passcode?: string): { state: DemoState; result: DemoResult } {
@@ -89,8 +94,6 @@ function next(seed: number): [number, number] {
   r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
   return [((r ^ (r >>> 14)) >>> 0) / 4_294_967_296, s];
 }
-
-const cents = (n: number) => Math.round(n * 100) / 100;
 
 export function demoTick(state: DemoState, now: Date): DemoState {
   const iso = now.toISOString();
@@ -140,7 +143,7 @@ export function demoTick(state: DemoState, now: Date): DemoState {
   });
 
   const { lastEquity } = state.snapshot.account;
-  const account = { ...state.snapshot.account, equity: cents(lastEquity + strategies.reduce((sum, s) => sum + s.todayPl, 0)) };
+  const account = { ...state.snapshot.account, equity: cents(lastEquity + state.unattributed + strategies.reduce((sum, s) => sum + s.todayPl, 0)) };
   const minute = iso.slice(0, 16);
   const trace = state.snapshot.equityToday;
   const equityToday = trace[trace.length - 1]?.at.slice(0, 16) === minute ? [...trace.slice(0, -1), { at: iso, equity: account.equity }] : [...trace, { at: iso, equity: account.equity }];
@@ -162,6 +165,7 @@ export function demoTick(state: DemoState, now: Date): DemoState {
     },
     queue: [],
     banked,
+    unattributed: state.unattributed,
     seed,
   };
 }
