@@ -6,6 +6,13 @@ Pitwall runs a small trading bot on a Raspberry Pi 5 and gives you a private das
 
 ![Pitwall Overview on sample data](docs/demo.png)
 
+**Launch video** (22 seconds, with sound), on desktop and on a phone. Select a poster to play it.
+
+<p>
+  <a href="docs/brag.mp4"><img src="docs/brag.jpg" width="64%" alt="Pitwall launch video, desktop: the flag band turns red on a halt"></a>
+  <a href="docs/brag-vertical.mp4"><img src="docs/brag-vertical.jpg" width="20%" alt="Pitwall launch video, phone: the same story in the mobile layout"></a>
+</p>
+
 It is two processes that share one SQLite file:
 
 - `src/engine` runs the strategies, talks to the broker, enforces the risk halts (daily loss, rejected orders in a row, broker silence) and writes everything to SQLite.
