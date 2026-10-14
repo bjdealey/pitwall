@@ -109,13 +109,17 @@ app.use('/api/*', async (c, next) => {
 app.get('/api/stream', (c) =>
   streamSSE(c, async (stream) => {
     let last = '';
+    let seen = -1;
     while (!stream.aborted) {
-      const snapshot = readSnapshot();
+      // data_version moves only when another connection (the engine) commits, so an unchanged one needs no read.
+      const version = db.$client.pragma('data_version', { simple: true });
+      const snapshot = version === seen ? null : readSnapshot();
       if (snapshot) {
+        seen = Number(version);
         const frame = nextFrame(snapshot, last);
         last = frame.body;
         await stream.writeSSE({ event: frame.event, data: frame.data });
-      }
+      } else if (version === seen) await stream.writeSSE({ event: 'tick', data: new Date().toISOString() });
       await stream.sleep(1000);
     }
   }),
