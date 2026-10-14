@@ -665,7 +665,7 @@ Source: \`.pw-btn\` in \`src/web/pitwall.css\`.`,
 
 **Use:**
 - \`flag-red\` fill. Pressing starts a fill that tracks the 2s hold; the label reads "Keep holding…" and the button settles to 98.5%. Letting go early eases the fill back.
-- Space or Enter held for 2s works the same. A screen reader's click, which has no press behind it, opens the passcode sheet directly; the passcode still guards it.
+- Space or Enter held for 2s works the same; key repeats never shortcut the hold, and the still-held key does nothing inside the sheet that opens. A screen reader's click, which has no press behind it, opens the passcode sheet directly; the passcode still guards it.
 - It sits beside Pause all at the foot of the timing tower.
 
 **Don't:**
@@ -744,7 +744,7 @@ Source: \`ConfirmSheet\` in \`src/web/components.tsx\`.`,
 
 **Use:**
 - The figure sits in \`board\` with wide tracking, in a field at least 56px tall with a \`control\` edge; an error turns the edge and the help line \`neg\`.
-- It is a password field with a numeric keypad, named \`passcode\`, autocompleting the current password.
+- It is a password field named \`passcode\` that takes any characters, autocompleting the current password. No numeric-only keypad, so a passcode with letters still works on a phone.
 - The help line is a polite live region, and an error moves focus back to the field.
 - After 5 wrong tries the help line says until when the passcode is locked.
 
