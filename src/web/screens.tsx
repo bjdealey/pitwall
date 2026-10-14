@@ -20,9 +20,9 @@ import {
   toneClass,
   useArrivals,
 } from './components.tsx';
-import { sendCommand } from './data.ts';
+import { sendCommand, usePost } from './data.ts';
 
-export type ScreenProps = { snapshot: Snapshot; stale: boolean; openPauseAll: () => void };
+export type ScreenProps = { snapshot: Snapshot; stale: boolean };
 
 const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -32,8 +32,9 @@ const ScreenLink = ({ href, children }: { href: string; children: string }) => (
   </a>
 );
 
-export const Overview = memo(function Overview({ snapshot, stale, openPauseAll }: ScreenProps) {
+export const Overview = memo(function Overview({ snapshot, stale }: ScreenProps) {
   const { account, positions, limits, health, events, strategies, equityToday, heartbeatAt } = snapshot;
+  const [pausing, setPausing] = useState(false);
   const [flattening, setFlattening] = useState(false);
   const unrealized = positions.reduce((sum, p) => sum + p.unrealizedPl, 0);
   const arrived = useArrivals(events);
@@ -47,7 +48,7 @@ export const Overview = memo(function Overview({ snapshot, stale, openPauseAll }
           footer={
             <>
               <div className="pw-controls">
-                <button type="button" className="pw-btn pw-btn-stop" onClick={openPauseAll}>
+                <button type="button" className="pw-btn pw-btn-stop" onClick={() => setPausing(true)}>
                   <Pause className="pw-icon" aria-hidden />
                   <span>Pause all</span>
                 </button>
@@ -90,6 +91,7 @@ export const Overview = memo(function Overview({ snapshot, stale, openPauseAll }
         </Screen>
       </div>
 
+      {pausing && <PauseAllSheet snapshot={snapshot} onClose={() => setPausing(false)} />}
       {flattening && <FlattenSheet snapshot={snapshot} onClose={() => setFlattening(false)} />}
     </div>
   );
@@ -99,18 +101,9 @@ const openOrdersLine = (snapshot: Snapshot | null) => (snapshot ? `Cancels ${cou
 
 function FlattenSheet({ snapshot, onClose }: { snapshot: Snapshot; onClose: () => void }) {
   const [passcode, setPasscode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const confirm = async () => {
-    if (!passcode) return setError('Enter the passcode.');
-    setBusy(true);
-    const result = await sendCommand({ kind: 'flatten' }, passcode);
-    setBusy(false);
-    if (result.ok) onClose();
-    else setError(result.error);
-  };
+  const { error, busy, send } = usePost(() => sendCommand({ kind: 'flatten' }, passcode), onClose);
   return (
-    <ConfirmSheet title="Flatten all positions?" confirmLabel="Flatten" confirmClass="pw-btn-danger" busy={busy} onConfirm={confirm} onCancel={onClose}>
+    <ConfirmSheet title="Flatten all positions?" confirmLabel="Flatten" confirmClass="pw-btn-danger" busy={busy} onConfirm={send} onCancel={onClose}>
       <ul>
         <li>Pauses every strategy.</li>
         <li>{openOrdersLine(snapshot)}</li>
@@ -122,17 +115,9 @@ function FlattenSheet({ snapshot, onClose }: { snapshot: Snapshot; onClose: () =
 }
 
 export function PauseAllSheet({ snapshot, onClose }: { snapshot: Snapshot | null; onClose: () => void }) {
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const confirm = async () => {
-    setBusy(true);
-    const result = await sendCommand({ kind: 'pause-all' });
-    setBusy(false);
-    if (result.ok) onClose();
-    else setError(result.error);
-  };
+  const { error, busy, send } = usePost(() => sendCommand({ kind: 'pause-all' }), onClose);
   return (
-    <ConfirmSheet title="Pause all strategies?" confirmLabel="Pause all" confirmClass="pw-btn-danger" busy={busy} error={error} onConfirm={confirm} onCancel={onClose}>
+    <ConfirmSheet title="Pause all strategies?" confirmLabel="Pause all" confirmClass="pw-btn-danger" busy={busy} error={error} onConfirm={send} onCancel={onClose}>
       <ul>
         <li>{snapshot ? `Stops new orders from ${count(snapshot.strategies.filter((s) => s.state.kind === 'running').length, 'running strategy', 'running strategies')}.` : 'Stops new orders from every strategy.'}</li>
         <li>{openOrdersLine(snapshot)}</li>

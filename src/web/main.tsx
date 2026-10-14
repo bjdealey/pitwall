@@ -6,7 +6,7 @@ import { StrictMode, useCallback, useEffect, useRef, useState, type FormEvent } 
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { HeartbeatAgeContext, MarketChip, ModeStrip, PasscodeInput, TrackBand, trackStatus } from './components.tsx';
-import { freshness, postJson, useNow, useSnapshot } from './data.ts';
+import { freshness, postJson, useNow, usePost, useSnapshot } from './data.ts';
 import { Events, Orders, Overview, PauseAllSheet, Positions, Strategies } from './screens.tsx';
 
 const ROUTES = [
@@ -37,8 +37,6 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const route = useRoute();
   const mainRef = useRef<HTMLElement>(null);
   const [pausing, setPausing] = useState(false);
-  const openPauseAll = useCallback(() => setPausing(true), []);
-  const closePauseAll = useCallback(() => setPausing(false), []);
   const { stale, heartbeatAgeMs } = feed ? freshness(feed, now) : { stale: true, heartbeatAgeMs: Infinity };
   const status = trackStatus(feed ? { strategies: feed.snapshot.strategies, market: feed.snapshot.market, stale, heartbeatAgeMs } : null);
   useEffect(() => {
@@ -65,7 +63,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
           ))}
         </nav>
         {feed && <MarketChip market={feed.snapshot.market} now={now} />}
-        <button type="button" className="pw-btn pw-btn-stop pw-btn-compact" onClick={openPauseAll}>
+        <button type="button" className="pw-btn pw-btn-stop pw-btn-compact" onClick={() => setPausing(true)}>
           <OctagonX className="pw-icon" aria-hidden />
           <span>Stop</span>
         </button>
@@ -75,7 +73,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         <div className="pw-main">
           {feed ? (
             <HeartbeatAgeContext value={heartbeatAgeMs}>
-              <route.Screen snapshot={feed.snapshot} stale={stale} openPauseAll={openPauseAll} />
+              <route.Screen snapshot={feed.snapshot} stale={stale} />
             </HeartbeatAgeContext>
           ) : (
             <p className="pw-waiting pw-label pw-muted">Waiting for the first engine heartbeat…</p>
@@ -91,23 +89,17 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
           </a>
         ))}
       </nav>
-      {pausing && <PauseAllSheet snapshot={feed?.snapshot ?? null} onClose={closePauseAll} />}
+      {pausing && <PauseAllSheet snapshot={feed?.snapshot ?? null} onClose={() => setPausing(false)} />}
     </div>
   );
 }
 
 function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   const [passcode, setPasscode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const submit = async (e: FormEvent) => {
+  const { error, busy, send } = usePost(() => postJson('/api/login', { passcode }), onSignedIn);
+  const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!passcode) return setError('Enter the passcode.');
-    setBusy(true);
-    const result = await postJson('/api/login', { passcode });
-    setBusy(false);
-    if (result.ok) onSignedIn();
-    else setError(result.error);
+    send();
   };
   return (
     <div className="pw-login">

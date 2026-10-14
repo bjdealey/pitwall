@@ -460,9 +460,9 @@ Source: \`Figures\` in \`src/web/components.tsx\`.`,
     subtitle: 'positions and orders',
     body: (
       <div className="pw-main">
-        <Positions snapshot={snapshot} stale={false} openPauseAll={noop} />
+        <Positions snapshot={snapshot} stale={false} />
         <div style={{ height: 16 }} />
-        <Orders snapshot={snapshot} stale={false} openPauseAll={noop} />
+        <Orders snapshot={snapshot} stale={false} />
       </div>
     ),
     readme: `Positions and orders as plain tables inside a Screen.
@@ -761,7 +761,7 @@ Source: \`PasscodeInput\` in \`src/web/components.tsx\`.`,
     subtitle: 'the whole first screen on desktop',
     body: (
       <div className="pw-main">
-        <Overview snapshot={snapshot} stale={false} openPauseAll={noop} />
+        <Overview snapshot={snapshot} stale={false} />
       </div>
     ),
     readme: `The first screen: the timing tower on the left, the pit board, Positions, Limits, Account and the latest events on the right.

@@ -1,9 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { createContext, use, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Account, EventRecord, Health, Limit, MarketSession, Mode, Severity, Strategy, StrategyState } from '../shared/domain.ts';
 import { et } from '../shared/et.ts';
 import { changePercent, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
-import { sendCommand } from './data.ts';
+import { sendCommand, usePost } from './data.ts';
 
 export const toneClass: Record<Tone, string> = { up: 'pw-up', down: 'pw-down', flat: 'pw-flat' };
 
@@ -244,7 +244,7 @@ const GB = 1024 ** 3;
 export const HeartbeatAgeContext = createContext(Infinity);
 
 export function SystemReadout({ health, heartbeatAt }: { health: Health; heartbeatAt: string | null }) {
-  const heartbeatAgeMs = useContext(HeartbeatAgeContext);
+  const heartbeatAgeMs = use(HeartbeatAgeContext);
   const cpu = health.cpuTempC;
   const disk = health.diskUsedPct;
   const warnLight = (on: boolean, level: 'warn' | 'neg' = 'warn') => (on ? <span className={`pw-light pw-light-${level}`} /> : null);
@@ -371,18 +371,15 @@ export function TimingTower({ strategies, footer }: { strategies: Strategy[]; fo
 }
 
 function ResumeSheet({ strategy, onClose, onSent }: { strategy: Strategy; onClose: () => void; onSent: () => void }) {
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const confirm = async () => {
-    setBusy(true);
-    const result = await sendCommand({ kind: 'resume-strategy', strategyId: strategy.id });
-    setBusy(false);
-    if (!result.ok) return setError(result.error);
-    onSent();
-    onClose();
-  };
+  const { error, busy, send } = usePost(
+    () => sendCommand({ kind: 'resume-strategy', strategyId: strategy.id }),
+    () => {
+      onSent();
+      onClose();
+    },
+  );
   return (
-    <ConfirmSheet title={`Resume ${strategy.id}?`} confirmLabel="Resume" confirmClass="pw-btn-primary" busy={busy} error={error} onConfirm={confirm} onCancel={onClose}>
+    <ConfirmSheet title={`Resume ${strategy.id}?`} confirmLabel="Resume" confirmClass="pw-btn-primary" busy={busy} error={error} onConfirm={send} onCancel={onClose}>
       {strategy.state.kind === 'halted' && <p>It was halted: {strategy.state.reason}</p>}
       <p>It trades {strategy.symbol} again on its next signal.</p>
     </ConfirmSheet>

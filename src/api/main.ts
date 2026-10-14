@@ -128,7 +128,7 @@ app.post('/api/commands', async (c) => {
   const command = parsed.data;
   if (command.kind === 'flatten') {
     const confirm = passcodeBody.safeParse(body);
-    if (!confirm.success) return c.json({ error: 'Flatten needs the passcode.' }, 400);
+    if (!confirm.success) return c.json({ error: 'Enter the passcode.' }, 400);
     const refused = await refusePasscode(c, confirm.data.passcode);
     if (refused) return refused;
   }

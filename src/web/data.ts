@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { startTransition, useActionState, useEffect, useState } from 'react';
 import type { Command, Snapshot } from '../shared/domain.ts';
 
 const STREAM_STALE_MS = 3_000;
@@ -69,6 +69,16 @@ export async function postJson(url: string, body: unknown): Promise<PostResult> 
   const data: { error?: unknown; lockedUntil?: unknown } = await res.json().catch(() => ({}));
   if (typeof data.lockedUntil === 'string') return { ok: false, error: lockedMessage(data.lockedUntil) };
   return { ok: false, error: typeof data.error === 'string' ? data.error : `Request failed (${res.status}).` };
+}
+
+/** A POST run as a React action: busy while in flight, the error it returned, and onOk once it succeeds. */
+export function usePost(post: () => Promise<PostResult>, onOk: () => void) {
+  const [error, run, busy] = useActionState<string | null>(async () => {
+    const result = await post();
+    if (result.ok) onOk();
+    return result.ok ? null : result.error;
+  }, null);
+  return { error, busy, send: () => startTransition(run) };
 }
 
 export const sendCommand = (command: Command, passcode?: string) => postJson('/api/commands', passcode === undefined ? command : { ...command, passcode });
