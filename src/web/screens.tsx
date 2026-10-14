@@ -135,14 +135,15 @@ function PositionsTable({ positions }: { positions: Position[] }) {
   return (
     <div className="pw-table-wrap">
       <table className="pw-table">
+        <caption className="pw-sr">Open positions</caption>
         <thead className="pw-small">
           <tr>
-            <th>Symbol</th>
-            <th className="pw-r">Qty</th>
-            <th className="pw-r pw-hide-phone">Avg</th>
-            <th className="pw-r">Last</th>
-            <th className="pw-r">P&amp;L</th>
-            <th className="pw-r pw-hide-phone">P&amp;L %</th>
+            <th scope="col">Symbol</th>
+            <th scope="col" className="pw-r">Qty</th>
+            <th scope="col" className="pw-r pw-hide-phone">Avg</th>
+            <th scope="col" className="pw-r">Last</th>
+            <th scope="col" className="pw-r">P&amp;L</th>
+            <th scope="col" className="pw-r pw-hide-phone">P&amp;L %</th>
           </tr>
         </thead>
         <tbody className="pw-figure">
@@ -194,16 +195,17 @@ export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
         ) : (
           <div className="pw-table-wrap">
             <table className="pw-table">
+              <caption className="pw-sr">Orders today</caption>
               <thead className="pw-small">
                 <tr>
-                  <th>Time (ET)</th>
-                  <th>Symbol</th>
-                  <th>Side</th>
-                  <th className="pw-r">Qty</th>
-                  <th className="pw-r pw-hide-phone">Filled</th>
-                  <th className="pw-r pw-hide-phone">Avg fill</th>
-                  <th>Status</th>
-                  <th className="pw-hide-phone">Strategy</th>
+                  <th scope="col">Time (ET)</th>
+                  <th scope="col">Symbol</th>
+                  <th scope="col">Side</th>
+                  <th scope="col" className="pw-r">Qty</th>
+                  <th scope="col" className="pw-r pw-hide-phone">Filled</th>
+                  <th scope="col" className="pw-r pw-hide-phone">Avg fill</th>
+                  <th scope="col">Status</th>
+                  <th scope="col" className="pw-hide-phone">Strategy</th>
                 </tr>
               </thead>
               <tbody className="pw-figure">
