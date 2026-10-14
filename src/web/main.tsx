@@ -6,7 +6,7 @@ import { StrictMode, useEffect, useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { HeartbeatAgeContext, MarketChip, ModeStrip, PasscodeInput, TrackBand, trackStatus } from './components.tsx';
-import { freshness, postJson, useNow, usePost, useSnapshot } from './data.ts';
+import { DEMO, freshness, postJson, useNow, usePost, useSnapshot } from './data.ts';
 import { Events, Orders, Overview, PauseAllSheet, Positions, Strategies } from './screens.tsx';
 
 const ROUTES = [
@@ -23,7 +23,8 @@ function useRoute() {
     const onChange = () => {
       const update = () => flushSync(() => setHash(location.hash));
       if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return update();
-      document.startViewTransition(update);
+      // A second tap before the first animation ends skips it; that rejection is expected, not an error.
+      document.startViewTransition(update).ready.catch(() => {});
     };
     addEventListener('hashchange', onChange);
     return () => removeEventListener('hashchange', onChange);
@@ -118,8 +119,9 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
 }
 
 function App() {
-  const [session, setSession] = useState<'checking' | 'in' | 'out'>('checking');
+  const [session, setSession] = useState<'checking' | 'in' | 'out'>(DEMO ? 'in' : 'checking');
   useEffect(() => {
+    if (DEMO) return;
     fetch('/api/session', { signal: AbortSignal.timeout(5_000) }).then(
       (r) => setSession(r.ok ? 'in' : 'out'),
       () => setSession('out'),

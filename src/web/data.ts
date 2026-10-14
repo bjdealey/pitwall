@@ -1,6 +1,9 @@
 import { startTransition, useActionState, useEffect, useEffectEvent, useState } from 'react';
 import type { Command, Snapshot } from '../shared/domain.ts';
 
+/** Built with VITE_DEMO=1 for GitHub Pages: sample data and a simulated engine in the browser, no API. */
+export const DEMO = import.meta.env.VITE_DEMO === '1';
+
 const STREAM_STALE_MS = 3_000;
 export const HEARTBEAT_STALE_MS = 15_000;
 
@@ -12,6 +15,19 @@ export function useSnapshot(onSignedOut: () => void): Feed | null {
   const [feed, setFeed] = useState<Feed | null>(null);
   const signOut = useEffectEvent(onSignedOut);
   useEffect(() => {
+    const onSnapshot = (snapshot: Snapshot) => setFeed({ snapshot, serverTime: snapshot.serverTime, receivedAt: Date.now() });
+    const onTick = (serverTime: string) => setFeed((feed) => feed && { ...feed, serverTime, receivedAt: Date.now() });
+    if (DEMO) {
+      let stop: (() => void) | undefined;
+      let disposed = false;
+      void import('./demo-feed.ts').then((demo) => {
+        if (!disposed) stop = demo.subscribeDemo(onSnapshot, onTick);
+      });
+      return () => {
+        disposed = true;
+        stop?.();
+      };
+    }
     let source: EventSource | undefined;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let disposed = false;
@@ -22,11 +38,8 @@ export function useSnapshot(onSignedOut: () => void): Feed | null {
     };
     const open = () => {
       source = new EventSource('/api/stream');
-      source.addEventListener('snapshot', (e: MessageEvent<string>) => {
-        const snapshot: Snapshot = JSON.parse(e.data);
-        setFeed({ snapshot, serverTime: snapshot.serverTime, receivedAt: Date.now() });
-      });
-      source.addEventListener('tick', (e: MessageEvent<string>) => setFeed((feed) => feed && { ...feed, serverTime: e.data, receivedAt: Date.now() }));
+      source.addEventListener('snapshot', (e: MessageEvent<string>) => onSnapshot(JSON.parse(e.data)));
+      source.addEventListener('tick', (e: MessageEvent<string>) => onTick(e.data));
       source.onerror = () => {
         if (source?.readyState !== EventSource.CLOSED) return;
         fetch('/api/session').then(
@@ -69,6 +82,7 @@ const lockedMessage = (iso: string) =>
   `Too many wrong passcodes. Locked until ${new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}.`;
 
 export async function postJson(url: string, body: unknown): Promise<PostResult> {
+  if (DEMO) return (await import('./demo-feed.ts')).postDemo(url, body);
   let res: Response;
   try {
     res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });

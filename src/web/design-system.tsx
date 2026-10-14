@@ -2,7 +2,8 @@ import { Activity, ArrowLeftRight, Briefcase, Gauge, Layers, OctagonX, Pause } f
 import type { CSSProperties, ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { evaluateLimits } from '../engine/limits.ts';
-import type { Account, EventRecord, Health, MarketSession, Order, Position, Snapshot, Strategy, StrategyId } from '../shared/domain.ts';
+import { demoSnapshot } from '../shared/demo.ts';
+import type { MarketSession, Strategy, StrategyId } from '../shared/domain.ts';
 import {
   collapseEvents,
   Empty,
@@ -25,21 +26,16 @@ import {
 import { Orders, Overview, Positions } from './screens.tsx';
 
 const at = (time: string, day = '2026-10-13') => `${day}T${time}Z`;
-const id = (s: string) => s as StrategyId;
 const NOW = at('17:30:00');
 const noop = () => {};
 
-const equityToday = Array.from({ length: 49 }, (_, i) => ({
-  at: new Date(Date.parse(at('13:30:00')) + i * 5 * 60_000).toISOString(),
-  equity: Math.round((100_000 + 9 * i + 140 * Math.sin(i / 4) + 45 * Math.sin(i / 1.7)) * 100) / 100,
-}));
-const account: Account = { equity: equityToday[equityToday.length - 1]?.equity ?? 100_000, lastEquity: 100_000, buyingPower: 197_412.36, cash: 92_317.52 };
-
-const spy: Strategy = { id: id('sma-cross-spy'), symbol: 'SPY', state: { kind: 'running' }, todayPl: 291.4, positions: 1, fillsToday: 4 };
-const qqq: Strategy = { id: id('sma-cross-qqq'), symbol: 'QQQ', state: { kind: 'running' }, todayPl: -41.16, positions: 1, fillsToday: 2 };
+const snapshot = demoSnapshot(new Date(NOW));
+const { account, equityToday, health } = snapshot;
+const [spy, qqq] = snapshot.strategies as [Strategy, Strategy];
+const events = snapshot.events;
 const qqqPaused: Strategy = { ...qqq, state: { kind: 'paused', by: 'you', at: at('15:02:11') } };
 const iwmHalted: Strategy = {
-  id: id('sma-cross-iwm'),
+  id: 'sma-cross-iwm' as StrategyId,
   symbol: 'IWM',
   state: { kind: 'halted', reason: 'Rejection limit reached (3 of 3 orders in a row).', at: at('14:12:40') },
   todayPl: 0,
@@ -48,64 +44,16 @@ const iwmHalted: Strategy = {
 };
 
 const market: Record<MarketSession['state'], MarketSession> = {
-  open: { state: 'open', nextChangeAt: at('20:00:00') },
+  open: snapshot.market,
   pre: { state: 'pre', nextChangeAt: at('13:30:00') },
   after: { state: 'after', nextChangeAt: at('00:00:00', '2026-10-14') },
   closed: { state: 'closed', nextChangeAt: at('08:00:00', '2026-10-14') },
 };
 
-const GB = 1024 ** 3;
-const health: Health = { brokerConnected: true, cpuTempC: 54.2, throttled: false, diskUsedPct: 31.4, memUsedBytes: 2.3 * GB, memTotalBytes: 8 * GB, uptimeS: 12 * 86_400 + 3 * 3_600 };
-
-const positions: Position[] = [
-  { symbol: 'SPY', qty: 12, avgEntryPrice: 571.2, lastPrice: 575.08, unrealizedPl: 46.56, unrealizedPlPct: 0.68 },
-  { symbol: 'QQQ', qty: 8, avgEntryPrice: 498.1, lastPrice: 496.92, unrealizedPl: -9.44, unrealizedPlPct: -0.24 },
-];
-
-const order = (o: Partial<Order> & Pick<Order, 'id' | 'symbol' | 'side' | 'qty' | 'status' | 'submittedAt'>): Order => ({ strategyId: null, type: 'market', filledQty: 0, filledAvgPrice: null, ...o });
-const orders: Order[] = [
-  order({ id: 'o6', strategyId: spy.id, symbol: 'SPY', side: 'sell', qty: 12, type: 'limit', status: 'new', submittedAt: at('16:20:04') }),
-  order({ id: 'o5', strategyId: qqq.id, symbol: 'QQQ', side: 'sell', qty: 8, status: 'canceled', submittedAt: at('15:01:58') }),
-  order({ id: 'o4', strategyId: spy.id, symbol: 'SPY', side: 'buy', qty: 12, status: 'filled', filledQty: 12, filledAvgPrice: 571.2, submittedAt: at('14:41:07') }),
-  order({ id: 'o3', strategyId: iwmHalted.id, symbol: 'IWM', side: 'buy', qty: 20, status: 'rejected', submittedAt: at('14:12:39') }),
-  order({ id: 'o2', strategyId: qqq.id, symbol: 'QQQ', side: 'buy', qty: 8, status: 'filled', filledQty: 8, filledAvgPrice: 498.1, submittedAt: at('13:52:21') }),
-  order({ id: 'o1', symbol: 'IWM', side: 'sell', qty: 5, status: 'filled', filledQty: 5, filledAvgPrice: 221.4, submittedAt: at('13:31:02') }),
-];
-
-const event = (eventId: number, time: string, severity: EventRecord['severity'], message: string, source: string): EventRecord => ({ id: eventId, at: at(time), severity, message, source });
-const events: EventRecord[] = [
-  event(10, '16:58:30', 'error', 'Account refresh failed: no reply within 10s.', 'broker'),
-  event(9, '16:52:10', 'error', 'Account refresh failed: no reply within 10s.', 'broker'),
-  event(8, '16:47:05', 'error', 'Account refresh failed: no reply within 10s.', 'broker'),
-  event(7, '15:02:11', 'info', 'Paused sma-cross-qqq from dashboard.', 'you'),
-  event(6, '14:41:07', 'info', 'Buy 12 SPY filled at $571.20.', 'sma-cross-spy'),
-  event(5, '14:12:40', 'halt', 'Rejection limit reached (3 of 3 orders in a row). Halted sma-cross-iwm.', 'engine'),
-  event(4, '14:12:39', 'warn', 'Buy 20 IWM rejected by broker.', 'sma-cross-iwm'),
-  event(3, '13:52:21', 'info', 'Buy 8 QQQ filled at $498.10.', 'sma-cross-qqq'),
-  event(2, '13:25:00', 'info', 'Engine started. PAPER on alpaca, strategies sma-cross-spy, sma-cross-qqq, sma-cross-iwm.', 'engine'),
-];
-
-const LIMITS = { dailyLossPct: 2, maxRejections: 3, brokerSilenceS: 30 };
-const calmLimits = evaluateLimits({ account, consecutiveRejections: 0, lastBrokerOkAt: new Date(Date.parse(NOW) - 2_000), now: new Date(NOW) }, LIMITS);
 const strainedLimits = evaluateLimits(
   { account: { ...account, equity: 98_440 }, consecutiveRejections: 1, lastBrokerOkAt: new Date(Date.parse(NOW) - 31_000), now: new Date(NOW) },
-  LIMITS,
+  { dailyLossPct: 2, maxRejections: 3, brokerSilenceS: 30 },
 );
-
-const snapshot: Snapshot = {
-  serverTime: NOW,
-  mode: 'paper',
-  heartbeatAt: at('17:29:58'),
-  market: market.open,
-  account,
-  equityToday,
-  positions,
-  orders,
-  strategies: [spy, qqq],
-  limits: calmLimits,
-  health,
-  events,
-};
 
 const band = (strategies: Strategy[], extra: { market?: MarketSession; stale?: boolean; heartbeatAgeMs?: number } = {}) =>
   trackStatus({ strategies, market: market.open, stale: false, heartbeatAgeMs: 2_000, ...extra });

@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom';
 import type { Account, EventRecord, Health, Limit, MarketSession, Mode, Severity, Strategy, StrategyState } from '../shared/domain.ts';
 import { et } from '../shared/et.ts';
 import { changePercent, count, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
-import { HEARTBEAT_STALE_MS, sendCommand, usePost } from './data.ts';
+import { DEMO, HEARTBEAT_STALE_MS, sendCommand, usePost } from './data.ts';
 
 export const toneClass: Record<Tone, string> = { up: 'pw-up', down: 'pw-down', flat: 'pw-flat' };
 
 export function ModeStrip({ mode }: { mode: Mode | null }) {
+  if (DEMO) return <div className="pw-mode pw-mode-paper pw-small">Demo with sample data. Nothing trades.</div>;
   if (!mode)
     return (
       <div className="pw-mode pw-mode-neutral pw-small" translate="no">

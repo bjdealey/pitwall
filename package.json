@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "node scripts/dev.ts",
     "build": "vite build",
+    "build:demo": "VITE_DEMO=1 vite build --base=./ --outDir ../../dist/demo",
     "start": "node -e \"console.log('Pitwall runs as two processes: npm run start:engine and npm run start:api (systemd units in deploy/ on the Pi).')\"",
     "start:engine": "node --env-file-if-exists=.env src/engine/main.ts",
     "start:api": "node --env-file-if-exists=.env src/api/main.ts",

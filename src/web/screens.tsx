@@ -20,7 +20,7 @@ import {
   toneClass,
   useArrivals,
 } from './components.tsx';
-import { sendCommand, usePost } from './data.ts';
+import { DEMO, sendCommand, usePost } from './data.ts';
 
 export type ScreenProps = { snapshot: Snapshot; stale: boolean };
 
@@ -107,7 +107,7 @@ function FlattenSheet({ snapshot, onClose }: { snapshot: Snapshot; onClose: () =
         <li>{openOrdersLine(snapshot)}</li>
         <li>{`Closes ${count(snapshot.positions.length, 'position')} at market.`}</li>
       </ul>
-      <PasscodeInput value={passcode} onChange={setPasscode} error={error} attempt={attempt} help="Flatten always asks for the passcode." />
+      <PasscodeInput value={passcode} onChange={setPasscode} error={error} attempt={attempt} help={DEMO ? 'Demo: any passcode works.' : 'Flatten always asks for the passcode.'} />
     </ConfirmSheet>
   );
 }
