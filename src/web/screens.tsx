@@ -63,7 +63,7 @@ export const Overview = memo(function Overview({ snapshot, stale }: ScreenProps)
       </div>
 
       <div className="pw-ov-board">
-        <PitBoard account={account} points={equityToday} stale={stale} />
+        <PitBoard account={account} points={equityToday} events={events} stale={stale} />
       </div>
 
       <div className="pw-ov-screens">

@@ -83,6 +83,8 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
   - previous close and day high
   
   Beside the board, the day's trace sits against the previous close as a single line, like a telemetry trace: no area fill, no gradient. Its axis spans the regular session, 09:30 to 16:00 ET, with a faint line each hour, so the trace grows across the day and the empty part is the time left. A dot in the trace's colour marks the latest sample. Like high and low water on a tide chart, the day high (in `best`, only when above the previous close) and the day low (only when below it) carry their figure and time on the curve.
+  Pointing at the trace, or focusing it and using the arrow keys, Home and End, scrubs it: a dashed `muted` cursor snaps to the nearest sample and a readout at the top of the plot gives its ET time, equity and change on the day. The readout centres on the cursor and stops at the plot's edges, and the high and low labels step aside while it shows. Pointer leave, Escape or blur clears it. Screen readers get the same readout as the slider's value.
+  Warnings, errors and halts in the session stand on the axis as flags: a 3px by 12px stripe in the event log's stripe colour (`warn`, `neg`, `flag-red`). Scrubbing to a flag's sample adds the worst of them to the readout, its severity in caps and its message cut to one line, with a count of the rest. Info events get no flag.
 - **Right, below:** Positions across the full width, then Limits and Account side by side at one height, so their bottom edges meet on one line, then Events.
 
 Limit meters are a strip of 20 segments, like the rev lights on a wheel. Any use lights the first segment, so a limit that has started to fill never reads as empty.

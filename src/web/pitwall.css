@@ -118,7 +118,18 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-hero { font-size: min(72px, calc((100cqi - 2 * var(--space-4) - 2px) / (var(--chars, 11) * .45))); line-height: .9; white-space: nowrap; }
 
 .pw-trace { display: flex; flex-direction: column; min-height: 100%; margin: 0; padding: var(--space-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.pw-trace-plot { position: relative; flex: 1; min-height: 180px; }
+.pw-trace-plot { position: relative; flex: 1; min-height: 180px; cursor: crosshair; touch-action: pan-y; }
+/* Scrub: a dashed cursor snaps to the nearest sample and a readout at the top gives its time, equity and change, plus any flag there. */
+.pw-trace-cursor { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.pw-trace-cursor-dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: var(--radius-full); background: var(--surface); box-shadow: 0 0 0 2px currentColor; pointer-events: none; }
+.pw-trace-readout { position: absolute; top: 0; z-index: 1; display: flex; flex-direction: column; gap: 2px; max-width: min(100%, 28rem); padding: var(--space-1) var(--space-2); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg); pointer-events: none; }
+.pw-trace-readout-row { display: flex; align-items: baseline; gap: var(--space-3); white-space: nowrap; }
+.pw-trace-readout-row .pw-small { color: var(--muted); }
+.pw-trace-readout-event { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; white-space: nowrap; }
+.pw-trace-readout-msg { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pw-trace-scrubbing .pw-trace-tag { visibility: hidden; }
+/* Flags: a stripe on the axis for each warning, error and halt, in the event log's stripe colour. */
+.pw-trace-flag { position: absolute; bottom: 0; width: 3px; height: 12px; translate: -50% 0; background: var(--stripe); pointer-events: none; }
 .pw-trace-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .pw-trace-line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .pw-trace-grid { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }

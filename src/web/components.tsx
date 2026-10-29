@@ -1,4 +1,4 @@
-import { createContext, use, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { createContext, use, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Account, EventRecord, Health, Limit, MarketSession, Mode, Severity, Strategy, StrategyState } from '../shared/domain.ts';
 import { atET, et } from '../shared/et.ts';
@@ -157,7 +157,7 @@ const TRACE_W = 1000;
 const TRACE_H = 200;
 
 /** The pit board: equity, today's change and the session's reference points on stacked slats, beside the day's trace. */
-export function PitBoard({ account, points, stale }: { account: Account; points: { at: string; equity: number }[]; stale: boolean }) {
+export function PitBoard({ account, points, events, stale }: { account: Account; points: { at: string; equity: number }[]; events: EventRecord[]; stale: boolean }) {
   const change = account.equity - account.lastEquity;
   const changePct = account.lastEquity ? (change / account.lastEquity) * 100 : 0;
   const t = tone(change);
@@ -188,12 +188,25 @@ export function PitBoard({ account, points, stale }: { account: Account; points:
           </div>
         </div>
       </div>
-      <EquityTrace points={points} baseline={account.lastEquity} high={high} stale={stale} />
+      <EquityTrace points={points} baseline={account.lastEquity} high={high} events={events} stale={stale} />
     </section>
   );
 }
 
-function EquityTrace({ points, baseline, high, stale }: { points: { at: string; equity: number }[]; baseline: number; high: { at: string; equity: number } | null; stale: boolean }) {
+const FLAG_RANK: Partial<Record<Severity, number>> = { warn: 1, error: 2, halt: 3 };
+
+function EquityTrace({ points, baseline, high, events, stale }: { points: { at: string; equity: number }[]; baseline: number; high: { at: string; equity: number } | null; events: EventRecord[]; stale: boolean }) {
+  const [cursor, setCursor] = useState<number | null>(null);
+  const readoutRef = useRef<HTMLSpanElement>(null);
+  // The readout centres on the cursor but stops at the plot's edges. Reset first so the width is the content's.
+  useLayoutEffect(() => {
+    const tag = readoutRef.current;
+    const plot = tag?.parentElement;
+    if (!tag || !plot) return;
+    tag.style.left = '0px';
+    const cx = (Number(tag.dataset.x) / 100) * plot.clientWidth;
+    tag.style.left = `${Math.max(0, Math.min(cx - tag.offsetWidth / 2, plot.clientWidth - tag.offsetWidth))}px`;
+  });
   const first = points[0];
   const last = points[points.length - 1];
   if (!first || !last || points.length < 2) {
@@ -226,9 +239,48 @@ function EquityTrace({ points, baseline, high, stale }: { points: { at: string; 
   const at = (p: { at: string; equity: number }) => ({ left: `${(x(p.at) / TRACE_W) * 100}%`, top: `${(y(p.equity) / TRACE_H) * 100}%` });
   // Near either end a label hangs inward from its dot, so it stays inside the plot.
   const edge = (p: { at: string }) => (x(p.at) < TRACE_W * 0.12 ? 'pw-trace-tag-start' : x(p.at) > TRACE_W * 0.88 ? 'pw-trace-tag-end' : '');
+  // The cursor snaps to the nearest sample, and each flag belongs to the sample nearest it.
+  const times = points.map((p) => Date.parse(p.at));
+  const nearest = (t: number) => times.reduce((best, ti, i) => (Math.abs(ti - t) < Math.abs((times[best] ?? ti) - t) ? i : best), 0);
+  const flags = events.filter((e) => FLAG_RANK[e.severity] && Date.parse(e.at) >= t0 && Date.parse(e.at) <= t1).sort((a, b) => (FLAG_RANK[a.severity] ?? 0) - (FLAG_RANK[b.severity] ?? 0));
+  const lastIndex = points.length - 1;
+  const index = cursor === null ? null : Math.min(cursor, lastIndex);
+  const shown = points[index ?? lastIndex] ?? last;
+  const here = flags.filter((e) => nearest(Date.parse(e.at)) === (index ?? lastIndex));
+  const worst = here.reduce<EventRecord | null>((w, e) => (!w || (FLAG_RANK[e.severity] ?? 0) > (FLAG_RANK[w.severity] ?? 0) ? e : w), null);
+  const change = shown.equity - baseline;
+  const scrub = (e: PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setCursor(nearest(t0 + ((e.clientX - r.left) / r.width) * span));
+  };
+  const step = (e: KeyboardEvent<HTMLDivElement>) => {
+    const from = index ?? lastIndex;
+    const to = ({ ArrowLeft: from - 1, ArrowRight: from + 1, Home: 0, End: lastIndex } as Record<string, number>)[e.key];
+    if (e.key === 'Escape') setCursor(null);
+    else if (to === undefined) return;
+    else setCursor(Math.max(0, Math.min(to, lastIndex)));
+    e.preventDefault();
+  };
   return (
-    <figure className={`pw-trace ${toneClass[stale ? 'flat' : tone(last.equity - baseline)]}`} aria-hidden>
-      <div className="pw-trace-plot">
+    <figure className={`pw-trace ${toneClass[stale ? 'flat' : tone(last.equity - baseline)]}`}>
+      <div
+        className={`pw-trace-plot ${index === null ? '' : 'pw-trace-scrubbing'}`}
+        role="slider"
+        tabIndex={0}
+        aria-label="Equity through the day"
+        aria-valuemin={0}
+        aria-valuemax={lastIndex}
+        aria-valuenow={index ?? lastIndex}
+        aria-valuetext={`${etTime(shown.at)}, ${money(shown.equity)}, ${signedMoney(change)} today${worst ? `, ${SEVERITY_WORD[worst.severity]}: ${worst.message}` : ''}`}
+        onPointerDown={scrub}
+        onPointerMove={scrub}
+        onPointerLeave={(e) => {
+          if (e.pointerType === 'mouse') setCursor(null);
+        }}
+        onKeyDown={step}
+        onFocus={() => setCursor((c) => c ?? lastIndex)}
+        onBlur={() => setCursor(null)}
+      >
         <svg viewBox={`0 0 ${TRACE_W} ${TRACE_H}`} preserveAspectRatio="none" aria-hidden>
           {[0.25, 0.5, 0.75].map((f) => (
             <line key={f} className="pw-trace-grid" x1={0} x2={TRACE_W} y1={TRACE_H * f} y2={TRACE_H * f} />
@@ -237,9 +289,32 @@ function EquityTrace({ points, baseline, high, stale }: { points: { at: string; 
             <line key={hx} className="pw-trace-grid" x1={hx} x2={hx} y1={0} y2={TRACE_H} />
           ))}
           <line className="pw-trace-base" x1={0} x2={TRACE_W} y1={baseY} y2={baseY} />
+          {index !== null && <line className="pw-trace-cursor" x1={x(shown.at)} x2={x(shown.at)} y1={0} y2={TRACE_H} />}
           <polyline className="pw-trace-line" points={line} />
         </svg>
+        {flags.map((e) => (
+          <span key={e.id} className={`pw-trace-flag pw-event-${e.severity}`} style={{ left: `${(x(e.at) / TRACE_W) * 100}%` }} />
+        ))}
         <span className="pw-trace-now" style={{ left: `${(x(last.at) / TRACE_W) * 100}%`, top: `${(y(last.equity) / TRACE_H) * 100}%` }} />
+        {index !== null && (
+          <>
+            <span className="pw-trace-cursor-dot" style={at(shown)} />
+            <span className="pw-trace-readout" ref={readoutRef} data-x={(x(shown.at) / TRACE_W) * 100}>
+              <span className="pw-trace-readout-row">
+                <span className="pw-small">{etTime(shown.at)}</span>
+                <span className="pw-figure">{money(shown.equity)}</span>
+                <span className={`pw-figure ${toneClass[tone(change)]}`}>{signedFigure(change)}</span>
+              </span>
+              {worst && (
+                <span className="pw-trace-readout-event pw-small">
+                  <span className={`pw-event-sev pw-sev-${worst.severity}`}>{SEVERITY_WORD[worst.severity]}</span>
+                  <span className="pw-trace-readout-msg">{worst.message}</span>
+                  {here.length > 1 && <span className="pw-muted">and {here.length - 1} more</span>}
+                </span>
+              )}
+            </span>
+          </>
+        )}
         {showLow && (
           <>
             <span className="pw-trace-low" style={at(low)} />
@@ -259,7 +334,7 @@ function EquityTrace({ points, baseline, high, stale }: { points: { at: string; 
           </>
         )}
       </div>
-      <figcaption className="pw-trace-axis pw-small">
+      <figcaption className="pw-trace-axis pw-small" aria-hidden>
         <span>{etTime(new Date(t0).toISOString())}</span>
         <span className="pw-trace-legend">
           <span className="pw-trace-swatch" aria-hidden /> Previous close
