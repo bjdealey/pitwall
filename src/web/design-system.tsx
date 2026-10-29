@@ -16,8 +16,10 @@ import {
   ModeStrip,
   PasscodeInput,
   PitBoard,
+  Readout,
   Screen,
   SignedMoney,
+  signedFigure,
   SystemReadout,
   TimingTower,
   TrackBand,
@@ -298,11 +300,13 @@ Source: \`PitBoard\` in \`src/web/components.tsx\`.`,
 **Provide:** the strategies, and on Overview a footer with Pause all, HoldToFlatten, the hint and the SystemReadout.
 
 **Use:**
-- Rows show the position (P1, P2), the strategy ID in \`timing\`, today's gain or loss and a switch. The leader's gain is \`best\` when it is up and there is more than one strategy.
+- Rows show the position in a box, the strategy ID in \`timing\`, today's gain or loss and a switch. The leader's box is inverted to timing white. The leader's gain is \`best\` when it is up and there is more than one strategy.
+- A 3px stripe down the row's left edge carries its state: \`pos\`, \`warn\` or \`flag-red\`.
 - The meta line shows a status value in capitals (RUNNING in \`pos\`, PAUSED in \`warn\`, HALTED as a \`flag-red\` chip), the symbol and fills today. A halted row adds the reason verbatim.
 - The switch is on only while running. Turning it off pauses that strategy at once; turning it on asks first in a ConfirmSheet that names the strategy. The knob pulses while the engine applies the command.
 - A row flashes its state colour once when its state changes.
-- The tower is \`tower-w\` wide on desktop and full width below 1100px.
+- The tower is \`tower-w\` wide on desktop and full width below 1100px. On Overview it stays in view while the page scrolls, when the window is at least 720px tall.
+- From 640px wide, as on Strategies, each row reads on one line: position, ID, meta, gain, switch.
 
 **Don't:**
 - Don't offer "Resume all". Resume is per strategy and never automatic.
@@ -359,6 +363,7 @@ Source: \`SystemReadout\` in \`src/web/components.tsx\`.`,
 
 **Use:**
 - Three meters on Overview: daily loss, rejections in a row and broker silence.
+- The track is a strip of 20 segments. Whole segments light, and any use lights the first one.
 - The fill is \`control\` while calm, \`warn\` from 75%, \`neg\` when breached, and the percent takes the same colour.
 - The detail line is the engine's own words: "$1,560.00 of $2,000.00".
 - The track is an ARIA meter with the detail as its value text.
@@ -401,9 +406,43 @@ Source: \`LimitMeter\` in \`src/web/components.tsx\`; limits from \`evaluateLimi
 Source: \`Figures\` in \`src/web/components.tsx\`.`,
   },
   {
+    name: 'Readout',
+    group: 'Data',
+    height: 124,
+    width: 1000,
+    subtitle: 'the figures a screen opens with',
+    body: (
+      <div style={pad}>
+        <Readout
+          cells={[
+            { label: 'Running', value: '1' },
+            { label: 'Paused', value: '1', className: 'pw-warn' },
+            { label: 'Halted', value: '1', className: 'pw-down' },
+            { label: 'Today’s P&L', value: signedFigure(412.08), className: 'pw-delta pw-up' },
+          ]}
+        />
+      </div>
+    ),
+    readme: `The figures a screen is about, on pit-board slats above its table.
+
+**Provide:** cells of a label and a figure already formatted as text, with an optional class for its colour.
+
+**Use:**
+- Positions, Orders & fills and Strategies open with one. Equal slats with asphalt between them, a \`small\` \`muted\` label over a figure in \`board\`.
+- The figure shrinks to fit its slat by its length, like the hero, so a long balance still fits two slats a row on a 320px phone.
+- Colour follows the figure: a gain or loss carries its sign and glyph in \`pos\` or \`neg\`; a count of paused strategies is \`warn\` and of halted ones or rejected orders \`neg\`, but only above zero.
+- Below 900px it shows two slats a row.
+
+**Don't:**
+- Don't put a figure here that the screen below does not explain.
+- Don't add icons or eyebrow labels. The label is the slat's only words.
+
+Source: \`Readout\` in \`src/web/components.tsx\`.`,
+  },
+  {
     name: 'DataTable',
     group: 'Data',
-    height: 580,
+    height: 800,
     width: 1000,
     subtitle: 'positions and orders',
     body: (
@@ -413,14 +452,14 @@ Source: \`Figures\` in \`src/web/components.tsx\`.`,
         <Orders snapshot={snapshot} stale={false} />
       </div>
     ),
-    readme: `Positions and orders as plain tables inside a Screen.
+    readme: `Positions and orders as plain tables inside a Screen, each under its Readout.
 
 **Provide:** the rows. Positions carry symbol, quantity, average, last, P&L and P&L %; orders carry time, symbol, side, quantity, filled, average fill, status and strategy.
 
 **Use:**
-- Headers in \`small\` and \`muted\`; cells in \`figure\`; symbols in \`timing\`. Numbers align right.
+- Headers in \`small\` and \`muted\` on a \`surface-2\` band; cells in \`figure\`; symbols in \`timing\`. Numbers align right.
 - Rows are \`row-h\` tall and alternate \`surface\` and \`surface-2\`.
-- Sides and statuses are status values in capitals. Rejected is \`neg\`, open is \`warn\`, done is \`muted\`.
+- Sides and statuses are status values in capitals. Rejected is \`neg\`, open is \`warn\`, done is \`muted\`. Rejected and open statuses sit in a chip: a border in their colour over its \`-soft\` tint.
 - Order times are ET. An order with no strategy reads "manual".
 - A position row tints once when its quantity changes.
 - Below 900px the secondary columns hide and the table scrolls sideways if it must.
@@ -491,7 +530,8 @@ Source: \`SignedMoney\` in \`src/web/components.tsx\`; formats in \`src/shared/f
 
 **Use:**
 - Time is local 24-hour in \`small\` \`muted\`. Severity is a status value: INFO \`muted\`, WARN \`warn\`, ERROR and HALT \`neg\`.
-- The message uses \`body\` and wraps; the source sits under it in \`muted\`. A folded row says how often: "broker, 3 times since 16:47:05".
+- The message uses \`body\` and wraps; the source sits under it in \`muted\`, or in its own right-hand column when the log is at least 720px wide. A folded row says how often: "broker, 3 times since 16:47:05".
+- WARN, ERROR and HALT rows carry a 3px stripe down the left edge in their colour.
 - The full log groups rows under a Screen per day.
 - A new row drops in and its tint fades over 1.6s.
 - Below 900px the time and severity sit above the message.

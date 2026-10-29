@@ -50,6 +50,7 @@ There are two themes. **Timing screen** (dark, the default) is an LED gantry: as
 - **Direction.** `pos` for gains and RUNNING, `neg` for losses and errors. On the timing screen the gain green is 2.6× lighter than the loss red, so the pair holds without hue. Every figure in either colour carries its sign and ▲ or ▼.
 - **Flags.** `flag-yellow` and `flag-red` fill the track band, with `on-flag` and `on-flag-red` text. `flag-green` is only ever the flag icon on a calm band. `flag-red` also fills Hold to flatten and the HALTED chip.
 - **Sector purple.** `best` marks the day's equity high on the board and trace, and the leading strategy's gain in the tower. Never anything else.
+- **Stripes.** A 3px stripe down the left edge of a tower row or event row carries its state, like a team colour on a timing tower: `pos` RUNNING, `warn` PAUSED and WARN, `neg` ERROR, `flag-red` HALTED and HALT. INFO rows have none.
 - **Mode.** `paper` with `on-paper`, and `live` with `on-live`, belong to the mode strip alone.
 - **Navigation and focus.** `accent` equals `fg` on purpose: the active nav bar and the focus outline are timing white (ink on the sheet).
 
@@ -75,7 +76,7 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
 
 **Overview** has two columns:
 
-- **Left: the timing tower** (`tower-w`, black). It ranks strategies by today's P&L, P1 first. Each row shows its position, ID, gain and switch, then a meta line: status value, symbol, fills today. A halted row adds its reason. At the foot of the tower are Pause all and Hold to flatten, and the system readout: engine heartbeat, broker, CPU, disk, memory and uptime.
+- **Left: the timing tower** (`tower-w`, black). It ranks strategies by today's P&L, leader first. Each row shows its position in a box (the leader's inverted to timing white), ID, gain and switch, then a meta line: status value, symbol, fills today. A state stripe runs down its left edge. A halted row adds its reason. At the foot of the tower are Pause all and Hold to flatten, and the system readout: engine heartbeat, broker, CPU, disk, memory and uptime. When the window is at least 720px tall the tower stays in view while the right column scrolls, so the controls never leave the screen.
 - **Right, top: the pit board.** Three slats with asphalt between them:
   - equity in `hero`
   - today's change in `board`
@@ -84,6 +85,12 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
   Beside the board, the day's trace sits against the previous close.
 - **Right, below:** Positions across the full width, then Limits and Account side by side, then Events.
 
+Limit meters are a strip of 20 segments, like the rev lights on a wheel. Any use lights the first segment, so a limit that has started to fill never reads as empty.
+
+**Positions, Orders & fills and Strategies** open with a readout: equal slats with asphalt between them, a `small` label over a figure in `board` that shrinks to fit its slat. Then the screen's table or tower at the full width of the page. Strategies shows the tower wide, one line per strategy. Events lists each day at full width, with the source in its own column on the right.
+
+Table headers sit on a `surface-2` band. Order statuses that need a look (open in `warn`, REJECTED in `neg`) sit in a chip: a 1px border in the status colour over its `-soft` tint.
+
 **Below 1100px** everything stacks: board, tower, screens, events.
 
 **Below 900px:**
@@ -91,6 +98,7 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
 - The tabs move to a bottom tab bar (`tabbar-h`).
 - The market chip shows its state only.
 - Positions, Limits and Account stack in one column.
+- Readouts show two slats a row.
 - Event rows stack: time and severity first, then the message.
 
 Anything you tap is at least `tap-min` tall. Small text links (Review strategies, All positions, Full log) keep their size and get a `tap-min` hit area around them.

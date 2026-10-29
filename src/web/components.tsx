@@ -118,6 +118,26 @@ export function Screen({ title, aside, flush = false, className = '', id, childr
   );
 }
 
+export type Reading = { label: string; value: string; className?: string };
+
+/** The figures a screen is about, on pit-board slats above its table. Each figure shrinks to fit its slat, like the hero. */
+export function Readout({ cells }: { cells: Reading[] }) {
+  return (
+    <dl className="pw-readout">
+      {cells.map((c) => (
+        <div key={c.label} className="pw-slat">
+          <dt className="pw-small pw-slat-label">{c.label}</dt>
+          <dd className={`pw-board pw-stat-value ${c.className ?? ''}`} style={{ '--chars': c.value.length } as CSSProperties}>
+            {c.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+export const signedFigure = (value: number) => `${signedMoney(value)} ${glyph(tone(value))}`.trim();
+
 export type Figure = { label: ReactNode; value: ReactNode };
 
 export function Figures({ rows }: { rows: Figure[] }) {
@@ -174,6 +194,7 @@ export function PitBoard({ account, points, stale }: { account: Account; points:
 }
 
 function EquityTrace({ points, baseline, high, stale }: { points: { at: string; equity: number }[]; baseline: number; high: { at: string; equity: number } | null; stale: boolean }) {
+  const fadeId = useId();
   const first = points[0];
   const last = points[points.length - 1];
   if (!first || !last || points.length < 2) {
@@ -194,14 +215,28 @@ function EquityTrace({ points, baseline, high, stale }: { points: { at: string; 
   const line = points.map((p) => `${x(p.at).toFixed(1)},${y(p.equity).toFixed(1)}`).join(' ');
   const baseY = y(baseline);
   const moved = Math.max(...values) > Math.min(...values);
+  // The fill fades from the line toward the previous close, on whichever side of it the day is.
+  const peakY = Math.min(baseY, ...points.map((p) => y(p.equity)));
+  const troughY = Math.max(baseY, ...points.map((p) => y(p.equity)));
   return (
     <figure className={`pw-trace ${toneClass[stale ? 'flat' : tone(last.equity - baseline)]}`} aria-hidden>
       <div className="pw-trace-plot">
         <svg viewBox={`0 0 ${TRACE_W} ${TRACE_H}`} preserveAspectRatio="none" aria-hidden>
-          {moved && <polygon className="pw-trace-area" points={`0,${baseY} ${line} ${TRACE_W},${baseY}`} />}
+          <defs>
+            <linearGradient id={fadeId} gradientUnits="userSpaceOnUse" x1={0} x2={0} y1={peakY} y2={troughY}>
+              <stop offset={0} stopColor="currentColor" stopOpacity={baseY > peakY ? 0.28 : 0} />
+              <stop offset={(baseY - peakY) / (troughY - peakY || 1)} stopColor="currentColor" stopOpacity={0} />
+              <stop offset={1} stopColor="currentColor" stopOpacity={troughY > baseY ? 0.28 : 0} />
+            </linearGradient>
+          </defs>
+          {[0.25, 0.5, 0.75].map((f) => (
+            <line key={f} className="pw-trace-grid" x1={0} x2={TRACE_W} y1={TRACE_H * f} y2={TRACE_H * f} />
+          ))}
+          {moved && <polygon points={`0,${baseY} ${line} ${TRACE_W},${baseY}`} fill={`url(#${fadeId})`} />}
           <line className="pw-trace-base" x1={0} x2={TRACE_W} y1={baseY} y2={baseY} />
           <polyline className="pw-trace-line" points={line} />
         </svg>
+        <span className="pw-trace-now" style={{ left: '100%', top: `${(y(last.equity) / TRACE_H) * 100}%` }} />
         {moved && high && high.equity > baseline && !stale && (
           <span className="pw-trace-high" style={{ left: `${(x(high.at) / TRACE_W) * 100}%`, top: `${(y(high.equity) / TRACE_H) * 100}%` }} title={`Day high ${money(high.equity)}`} />
         )}
@@ -217,8 +252,12 @@ function EquityTrace({ points, baseline, high, stale }: { points: { at: string; 
   );
 }
 
+const SEGMENTS = 20;
+
 export function LimitMeter({ limit }: { limit: Limit }) {
   const ratio = limit.max > 0 ? Math.min(1, limit.used / limit.max) : 0;
+  // Any use lights a segment, so a limit that has started to fill never reads as empty.
+  const lit = Math.ceil(ratio * SEGMENTS) / SEGMENTS;
   const level = limit.breached ? 'pw-meter-crit' : ratio >= 0.75 ? 'pw-meter-warn' : '';
   return (
     <div className={`pw-meter ${level}`}>
@@ -227,7 +266,7 @@ export function LimitMeter({ limit }: { limit: Limit }) {
         <span className="pw-meter-pct pw-figure">{pct(ratio * 100)}</span>
       </div>
       <div className="pw-meter-track" role="meter" aria-label={limit.label} aria-valuemin={0} aria-valuemax={limit.max} aria-valuenow={limit.used} aria-valuetext={limit.detail}>
-        <div className="pw-meter-fill" style={{ transform: `scaleX(${ratio})` }} />
+        <div className="pw-meter-fill" style={{ transform: `scaleX(${lit})` }} />
       </div>
       <div className="pw-meter-sub pw-small">{limit.detail}</div>
     </div>
@@ -301,7 +340,7 @@ function TowerRow({ position, strategy, best, busy, onToggle }: { position: numb
   return (
     <li className={`pw-tower-row pw-state-${state.kind}`}>
       {changed && <span key={state.kind} className={`pw-row-flash pw-row-flash-${state.kind}`} aria-hidden />}
-      <span className="pw-tower-pos pw-timing">P{position}</span>
+      <span className="pw-tower-pos pw-timing">{position}</span>
       <span className="pw-tower-id pw-timing" translate="no">
         {id}
       </span>
@@ -439,7 +478,7 @@ const SEVERITY_WORD: Record<Severity, string> = { info: 'INFO', warn: 'WARN', er
 export function EventRow({ group, fresh = false }: { group: EventGroup; fresh?: boolean }) {
   const { latest, earliest, count: n } = group;
   return (
-    <li className={`pw-event ${fresh ? 'pw-event-new' : ''}`}>
+    <li className={`pw-event pw-event-${latest.severity} ${fresh ? 'pw-event-new' : ''}`}>
       <span className="pw-event-time pw-small">{localClock(latest.at)}</span>
       <span className={`pw-event-sev pw-small pw-sev-${latest.severity}`}>{SEVERITY_WORD[latest.severity]}</span>
       <span className="pw-event-msg pw-body">{latest.message}</span>

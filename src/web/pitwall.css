@@ -22,6 +22,7 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-delta { white-space: nowrap; }
 .pw-up { color: var(--pos); }
 .pw-down { color: var(--neg); }
+.pw-warn { color: var(--warn); }
 .pw-flat { color: var(--muted); }
 .pw-best { color: var(--best); }
 
@@ -96,6 +97,7 @@ button:disabled { cursor: default; opacity: .6; }
 /* Overview: timing tower on the left, pit board and screens on the right. */
 .pw-ov { display: grid; grid-template-columns: var(--tower-w) minmax(0, 1fr); grid-template-areas: "tower board" "tower screens" "tower events"; grid-template-rows: auto auto 1fr; gap: var(--space-4); align-items: start; }
 .pw-ov-tower { grid-area: tower; }
+@media (min-width: 1100px) and (min-height: 720px) { .pw-ov-tower { position: sticky; top: var(--space-6); } }
 .pw-ov-board { grid-area: board; }
 .pw-ov-screens { grid-area: screens; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
 .pw-ov-events { grid-area: events; }
@@ -118,25 +120,36 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-trace-plot { position: relative; flex: 1; min-height: 180px; }
 .pw-trace-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .pw-trace-line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.pw-trace-area { fill: currentColor; fill-opacity: .12; }
+.pw-trace-grid { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .pw-trace-base { stroke: var(--control); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
 .pw-trace-legend { display: inline-flex; align-items: center; gap: var(--space-2); }
 .pw-trace-swatch { width: 20px; border-top: 1px dashed var(--control); }
+.pw-trace-now { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: var(--radius-full); background: currentColor; box-shadow: 0 0 0 3px var(--surface); }
 .pw-trace-high { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: var(--radius-full); background: var(--best); box-shadow: 0 0 0 3px var(--surface); }
 .pw-trace-axis { display: flex; justify-content: space-between; margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--border); color: var(--muted); }
 .pw-trace-empty { justify-content: center; align-items: center; color: var(--muted); text-align: center; }
 .pw-is-stale .pw-trace { color: var(--muted); }
 
+/* Readout: the figures a screen is about, on equal slats above its table. */
+.pw-readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-1); margin: 0; }
+.pw-readout .pw-slat { min-width: 0; padding: var(--space-4); container-type: inline-size; }
+.pw-readout dd { margin: 0; font-size: min(36px, 100cqi / (var(--chars, 6) * .5)); white-space: nowrap; }
+
 /* Timing tower: strategies ranked by today's P&L. */
-.pw-tower { overflow: hidden; background: var(--surface); border-radius: var(--radius-sm); }
+.pw-tower { overflow: hidden; background: var(--surface); border-radius: var(--radius-sm); container-type: inline-size; }
 .pw-tower-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: var(--space-4); border-bottom: 1px solid var(--border); }
 .pw-tower-head h2 { margin: 0; }
 .pw-tower-list { margin: 0; padding: 0; list-style: none; }
-.pw-tower-row { position: relative; isolation: isolate; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto auto; grid-template-areas: "pos id gap switch" ". meta meta switch" ". reason reason reason"; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
+.pw-tower-row { position: relative; isolation: isolate; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto auto; grid-template-areas: "pos id gap switch" ". meta meta switch" ". reason reason reason"; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
 .pw-tower-row:nth-child(even) { background: var(--surface-2); }
 .pw-tower-row:last-child { border-bottom: 0; }
-.pw-tower-pos { grid-area: pos; color: var(--muted); }
-.pw-tower-row:first-child .pw-tower-pos { color: var(--fg); }
+/* The state stripe, like a team colour down the side of a timing tower row. */
+.pw-tower-row::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: var(--stripe, transparent); }
+.pw-state-running { --stripe: var(--pos); }
+.pw-state-paused { --stripe: var(--warn); }
+.pw-state-halted { --stripe: var(--flag-red); }
+.pw-tower-pos { grid-area: pos; display: grid; place-items: center; height: 24px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); }
+.pw-tower-row:first-child .pw-tower-pos { border-color: var(--fg); background: var(--fg); color: var(--surface); }
 .pw-tower-id { grid-area: id; overflow-wrap: anywhere; }
 .pw-tower-gap { grid-area: gap; text-align: right; }
 .pw-tower-row > .pw-switch-hit { grid-area: switch; justify-self: end; }
@@ -146,6 +159,10 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-state-chip-running { color: var(--pos); }
 .pw-state-chip-paused { color: var(--warn); }
 .pw-state-chip-halted { padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--flag-red); color: var(--on-flag-red); }
+/* A wide tower, as on Strategies, reads each strategy on one line. */
+@container (min-width: 640px) {
+  .pw-tower-row { grid-template-columns: 28px minmax(140px, 16rem) minmax(0, 1fr) minmax(7rem, auto) auto; grid-template-areas: "pos id meta gap switch" ". reason reason reason reason"; gap: var(--space-1) var(--space-4); }
+}
 .pw-tower-error { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); }
 .pw-tower-foot { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-top: 1px solid var(--border); }
 .pw-controls { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
@@ -170,8 +187,8 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-screen-link { position: relative; color: var(--muted); text-decoration: none; }
 .pw-screen-link:hover { color: var(--fg); text-decoration: underline; }
 .pw-screen-body { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); }
-.pw-page { display: flex; flex-direction: column; gap: var(--space-4); max-width: 1200px; }
-.pw-page-narrow { max-width: 760px; }
+.pw-page { display: flex; flex-direction: column; gap: var(--space-4); }
+.pw-screen-flush { container-type: inline-size; }
 
 .pw-figures { display: flex; flex-direction: column; margin: 0; }
 .pw-figures-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
@@ -181,7 +198,7 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-figures dd { margin: 0; }
 
 .pw-meter-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
-.pw-meter-track { height: 6px; margin-top: var(--space-2); overflow: hidden; border-radius: var(--radius-full); background: var(--border); }
+.pw-meter-track { height: 8px; margin-top: var(--space-2); overflow: hidden; background: var(--border); mask: repeating-linear-gradient(90deg, #000 0 calc(5% - 2px), transparent calc(5% - 2px) 5%); }
 .pw-meter-fill { height: 100%; background: var(--control); transform-origin: left; }
 .pw-meter-warn .pw-meter-fill { background: var(--warn); }
 .pw-meter-warn .pw-meter-pct { color: var(--warn); }
@@ -191,7 +208,7 @@ button:disabled { cursor: default; opacity: .6; }
 
 .pw-table-wrap { overflow-x: auto; }
 .pw-table { width: 100%; border-collapse: collapse; }
-.pw-table th { height: 36px; padding: 0 var(--space-4); border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 500; text-align: left; white-space: nowrap; }
+.pw-table th { height: 36px; padding: 0 var(--space-4); border-bottom: 1px solid var(--border); background: var(--surface-2); color: var(--muted); font-weight: 500; text-align: left; white-space: nowrap; }
 .pw-table td { height: var(--row-h); padding: 0 var(--space-4); border-bottom: 1px solid var(--border); white-space: nowrap; }
 .pw-table tbody tr:nth-child(even) td { background: var(--surface-2); }
 .pw-table tr:last-child td { border-bottom: 0; }
@@ -199,10 +216,17 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-sev-error, .pw-sev-halt { color: var(--neg); }
 .pw-sev-warn { color: var(--warn); }
 .pw-sev-info { color: var(--muted); }
+.pw-status { display: inline-block; padding: 0 var(--space-1); border: 1px solid transparent; border-radius: var(--radius-sm); font-weight: 700; }
+.pw-status.pw-sev-error { border-color: currentColor; background: var(--neg-soft); }
+.pw-status.pw-sev-warn { border-color: currentColor; background: var(--warn-soft); }
 
 .pw-events { margin: 0; padding: 0; list-style: none; }
-.pw-event { display: grid; grid-template-columns: 72px 52px minmax(0, 1fr); grid-template-areas: "time sev msg" ". . src"; align-items: baseline; gap: 2px var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); content-visibility: auto; contain-intrinsic-size: auto 72px; }
+.pw-event { position: relative; display: grid; grid-template-columns: 72px 52px minmax(0, 1fr); grid-template-areas: "time sev msg" ". . src"; align-items: baseline; gap: 2px var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); content-visibility: auto; contain-intrinsic-size: auto 72px; }
 .pw-event:last-child { border-bottom: 0; }
+.pw-event::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: var(--stripe, transparent); }
+.pw-event-warn { --stripe: var(--warn); }
+.pw-event-error { --stripe: var(--neg); }
+.pw-event-halt { --stripe: var(--flag-red); }
 .pw-event-time { grid-area: time; color: var(--muted); }
 .pw-event-sev { grid-area: sev; font-weight: 700; letter-spacing: .04em; }
 .pw-event-msg { grid-area: msg; min-width: 0; overflow-wrap: anywhere; }
@@ -244,6 +268,8 @@ button:disabled { cursor: default; opacity: .6; }
   .pw-track-action { margin-left: 32px; }
   .pw-main { padding-block: var(--space-4); }
   .pw-board-wrap, .pw-ov-screens { grid-template-columns: minmax(0, 1fr); }
+  .pw-readout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pw-readout .pw-slat { padding: var(--space-3); }
   .pw-trace-plot { min-height: 120px; }
   .pw-event { grid-template-columns: auto auto minmax(0, 1fr); grid-template-areas: "time sev ." "msg msg msg" "src src src"; }
   .pw-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); min-height: var(--tabbar-h); padding-right: env(safe-area-inset-right); padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); background: var(--surface); border-top: 1px solid var(--border); }
@@ -251,6 +277,11 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-tab { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); color: var(--muted); text-decoration: none; }
 .pw-tab:hover, .pw-tab[aria-current="page"] { color: var(--fg); }
 .pw-tab-pill { position: absolute; top: -1px; left: 25%; right: 25%; height: 3px; background: var(--accent); view-transition-name: tab-pill; }
+
+@container (min-width: 720px) {
+  .pw-event { grid-template-columns: 72px 52px minmax(0, 1fr) minmax(0, 20rem); grid-template-areas: "time sev msg src"; }
+  .pw-event-src { text-align: right; }
+}
 
 /* Motion. Every animation reports something: a heartbeat, a pending command, a state change, a new event, a new screen. */
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; }

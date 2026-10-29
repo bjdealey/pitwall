@@ -1,7 +1,7 @@
 import { Pause } from 'lucide-react';
 import { memo, useEffect, useRef, useState } from 'react';
 import type { Position, Snapshot } from '../shared/domain.ts';
-import { count, etClock, glyph, money, qty, signedPct, tone } from '../shared/format.ts';
+import { count, etClock, glyph, money, pct, qty, signedPct, tone } from '../shared/format.ts';
 import { isOpenOrder } from '../shared/orders.ts';
 import {
   collapseEvents,
@@ -13,8 +13,10 @@ import {
   LimitMeter,
   PasscodeInput,
   PitBoard,
+  Readout,
   Screen,
   SignedMoney,
+  signedFigure,
   SystemReadout,
   TimingTower,
   toneClass,
@@ -171,9 +173,20 @@ function PositionsTable({ positions }: { positions: Position[] }) {
 }
 
 export const Positions = memo(function Positions({ snapshot, stale }: ScreenProps) {
-  const { positions } = snapshot;
+  const { positions, account } = snapshot;
+  const value = positions.reduce((sum, p) => sum + p.qty * p.lastPrice, 0);
+  const gross = positions.reduce((sum, p) => sum + Math.abs(p.qty * p.lastPrice), 0);
+  const unrealized = positions.reduce((sum, p) => sum + p.unrealizedPl, 0);
   return (
     <div className={`pw-page ${stale ? 'pw-is-stale' : ''}`}>
+      <Readout
+        cells={[
+          { label: 'Open', value: String(positions.length) },
+          { label: 'Market value', value: money(value) },
+          { label: 'Unrealized P&L', value: signedFigure(unrealized), className: `pw-delta ${toneClass[tone(unrealized)]}` },
+          { label: 'Exposure of equity', value: pct(account.equity > 0 ? (gross / account.equity) * 100 : 0) },
+        ]}
+      />
       <Screen title={`${count(positions.length, 'open position')}`} flush>
         <PositionsTable positions={positions} />
       </Screen>
@@ -185,8 +198,17 @@ const orderClass = (status: string) => (status === 'rejected' ? 'pw-sev-error' :
 
 export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
   const { orders } = snapshot;
+  const rejected = orders.filter((o) => o.status === 'rejected').length;
   return (
     <div className={`pw-page ${stale ? 'pw-is-stale' : ''}`}>
+      <Readout
+        cells={[
+          { label: 'Orders today', value: String(orders.length) },
+          { label: 'Filled', value: String(orders.filter((o) => o.status === 'filled').length) },
+          { label: 'Open', value: String(orders.filter(isOpenOrder).length) },
+          { label: 'Rejected', value: String(rejected), className: rejected ? 'pw-down' : '' },
+        ]}
+      />
       <Screen title={`Today, ${count(orders.length, 'order')}`} flush>
         {orders.length === 0 ? (
           <Empty title="No orders today.">Orders appear here as strategies trade, newest first.</Empty>
@@ -217,7 +239,9 @@ export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
                     <td className="pw-r">{qty(o.qty)}</td>
                     <td className="pw-r pw-hide-phone">{qty(o.filledQty)}</td>
                     <td className="pw-r pw-hide-phone">{o.filledAvgPrice === null ? '' : money(o.filledAvgPrice)}</td>
-                    <td className={`pw-small pw-caps ${orderClass(o.status)}`}>{o.status.replaceAll('_', ' ')}</td>
+                    <td>
+                      <span className={`pw-status pw-small pw-caps ${orderClass(o.status)}`}>{o.status.replaceAll('_', ' ')}</span>
+                    </td>
                     <td className={`pw-hide-phone ${o.strategyId ? '' : 'pw-muted'}`} translate={o.strategyId ? 'no' : undefined}>
                       {o.strategyId ?? 'manual'}
                     </td>
@@ -233,9 +257,22 @@ export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
 });
 
 export const Strategies = memo(function Strategies({ snapshot, stale }: ScreenProps) {
+  const { strategies } = snapshot;
+  const inState = (kind: string) => strategies.filter((s) => s.state.kind === kind).length;
+  const paused = inState('paused');
+  const halted = inState('halted');
+  const today = strategies.reduce((sum, s) => sum + s.todayPl, 0);
   return (
-    <div className={`pw-page pw-page-narrow ${stale ? 'pw-is-stale' : ''}`}>
-      <TimingTower strategies={snapshot.strategies} />
+    <div className={`pw-page ${stale ? 'pw-is-stale' : ''}`}>
+      <Readout
+        cells={[
+          { label: 'Running', value: String(inState('running')) },
+          { label: 'Paused', value: String(paused), className: paused ? 'pw-warn' : '' },
+          { label: 'Halted', value: String(halted), className: halted ? 'pw-down' : '' },
+          { label: 'Today’s P&L', value: signedFigure(today), className: `pw-delta ${toneClass[tone(today)]}` },
+        ]}
+      />
+      <TimingTower strategies={strategies} />
     </div>
   );
 });
