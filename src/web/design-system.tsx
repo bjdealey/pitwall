@@ -4,7 +4,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { evaluateLimits } from '../engine/limits.ts';
 import { demoSnapshot } from '../shared/demo.ts';
 import type { MarketSession, Strategy, StrategyId } from '../shared/domain.ts';
+import { money } from '../shared/format.ts';
 import {
+  Allocation,
   collapseEvents,
   Empty,
   EventLog,
@@ -32,7 +34,7 @@ const NOW = at('17:30:00');
 const noop = () => {};
 
 const snapshot = demoSnapshot(new Date(NOW));
-const { account, equityToday, health } = snapshot;
+const { account, equityToday, health, positions } = snapshot;
 const [spy, qqq] = snapshot.strategies as [Strategy, Strategy];
 const events = snapshot.events;
 const qqqPaused: Strategy = { ...qqq, state: { kind: 'paused', by: 'you', at: at('15:02:11') } };
@@ -277,9 +279,10 @@ Source: \`Shell\` in \`src/web/main.tsx\`.`,
 - The trace is a single line in \`pos\` or \`neg\` by today's direction against the previous close, a dashed \`control\` line. No area fill or gradient. Times along the axis are ET.
 - The axis spans the regular session, 09:30 to 16:00 ET, with a faint line each hour, and widens only if samples fall outside it. The empty part is the time left. A dot marks the latest sample.
 - Point at the trace, or focus it and use the arrow keys, Home and End, to scrub it. A dashed \`muted\` cursor snaps to the nearest sample and a readout at the top gives its ET time, equity and change on the day, stopping at the plot's edges. The high and low labels step aside while it shows. Pointer leave, Escape or blur clears it. The plot is a slider whose value text is the readout.
-- Warnings, errors and halts in the session stand on the axis as 3px flags in the event log's stripe colours. Scrubbing to a flag's sample adds the worst one's severity and message to the readout, with a count of the rest.
+- Warnings, errors and halts in the session stand on the axis as 3px flags in the event log's stripe colours. Scrubbing to a flag's sample adds the worst one's severity and message to the readout, with a count of the rest. Flags draw over the high and low labels, so a label never hides a halt.
 - A change under 0.01% reads "<0.01%", never a signed zero.
 - Stale figures and the trace fade to \`muted\`.
+- The Equity label carries the privacy eye. With amounts hidden, every money figure on the board and trace blurs in place; the percent, times and the trace's shape stay.
 
 **Don't:**
 - Don't flash prices on ticks.
@@ -410,6 +413,40 @@ Source: \`LimitMeter\` in \`src/web/components.tsx\`; limits from \`evaluateLimi
 Source: \`Figures\` in \`src/web/components.tsx\`.`,
   },
   {
+    name: 'Allocation',
+    group: 'Data',
+    height: 268,
+    width: 392,
+    subtitle: 'positions and cash by market value',
+    body: (
+      <div style={pad}>
+        <Screen title="Account">
+          <Allocation positions={positions} cash={account.cash} />
+          <Figures
+            rows={[
+              { label: 'Buying power', value: money(account.buyingPower) },
+              { label: 'Cash', value: money(account.cash) },
+            ]}
+          />
+        </Screen>
+      </div>
+    ),
+    readme: `How the account splits between each open position and cash, by market value.
+
+**Provide:** the open positions and the account's cash.
+
+**Use:**
+- On Overview it opens the Account screen, above the figures, and closes with a row rule like them.
+- One 8px strip. Each position is a segment lit in \`control\`, largest first, then cash unlit in \`border\`. Segments sit 2px apart and never shrink below 2px.
+- A key under the strip gives each symbol and cash its percent of the whole, in the same order. The strip is decoration; the key is the content.
+- A short counts at its absolute value, and margin debt counts as no cash.
+
+**Don't:**
+- Don't colour segments by symbol or by gain. Colour is for flags and figures.
+
+Source: \`Allocation\` in \`src/web/components.tsx\`.`,
+  },
+  {
     name: 'Readout',
     group: 'Data',
     height: 124,
@@ -429,17 +466,18 @@ Source: \`Figures\` in \`src/web/components.tsx\`.`,
     ),
     readme: `The figures a screen is about, on pit-board slats above its table.
 
-**Provide:** cells of a label and a figure already formatted as text, with an optional class for its colour.
+**Provide:** cells of a label and a figure already formatted as text, with an optional class for its colour. Add \`pw-amount\` to money, so privacy mode blurs it.
 
 **Use:**
 - Positions, Orders & fills and Strategies open with one. Equal slats with asphalt between them, a \`small\` \`muted\` label over a figure in \`board\`.
 - The figure shrinks to fit its slat by its length, like the hero, so a long balance still fits two slats a row on a 320px phone.
 - Colour follows the figure: a gain or loss carries its sign and glyph in \`pos\` or \`neg\`; a count of paused strategies is \`warn\` and of halted ones or rejected orders \`neg\`, but only above zero.
 - Below 900px it shows two slats a row.
+- The first slat carries the privacy eye. Pressed, it blurs every figure marked \`pw-amount\` across the app until pressed again, on this device.
 
 **Don't:**
 - Don't put a figure here that the screen below does not explain.
-- Don't add icons or eyebrow labels. The label is the slat's only words.
+- Don't add icons or eyebrow labels. The label is the slat's only words, apart from the privacy eye at the end of the first one.
 
 Source: \`Readout\` in \`src/web/components.tsx\`.`,
   },
@@ -466,6 +504,8 @@ Source: \`Readout\` in \`src/web/components.tsx\`.`,
 - Rows are \`row-h\` tall and alternate \`surface\` and \`surface-2\`.
 - Sides and statuses are status values in capitals. Rejected is \`neg\`, open is \`warn\`, done is \`muted\`. Rejected and open statuses sit in a chip: a border in their colour over its \`-soft\` tint.
 - Order times are ET. An order with no strategy reads "manual".
+- Orders & fills offers "Download CSV" beside its title: today's orders, newest first, UTC times, formulas defused. Built by \`ordersCsv\` in \`src/shared/orders.ts\`.
+- Quantities carry \`pw-amount\`, so privacy mode blurs them; prices stay.
 - A position row tints once when its quantity changes.
 - Below 900px the secondary columns hide and columns sit 16px apart (8px below 360px), with the outer edges kept at 16px, so Orders & fills fits a 320px phone. The table scrolls sideways only if it still must.
 

@@ -1,9 +1,11 @@
 import { Pause } from 'lucide-react';
 import { memo, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Position, Snapshot } from '../shared/domain.ts';
+import { et } from '../shared/et.ts';
 import { count, etClock, glyph, money, pct, qty, signedPct, tone } from '../shared/format.ts';
-import { isOpenOrder } from '../shared/orders.ts';
+import { isOpenOrder, ordersCsv } from '../shared/orders.ts';
 import {
+  Allocation,
   collapseEvents,
   ConfirmSheet,
   Empty,
@@ -76,10 +78,11 @@ export const Overview = memo(function Overview({ snapshot, stale }: ScreenProps)
           ))}
         </Screen>
         <Screen title="Account" className="pw-ov-account">
+          <Allocation positions={positions} cash={account.cash} />
           <Figures
             rows={[
-              { label: 'Buying power', value: money(account.buyingPower) },
-              { label: 'Cash', value: money(account.cash) },
+              { label: 'Buying power', value: <span className="pw-amount">{money(account.buyingPower)}</span> },
+              { label: 'Cash', value: <span className="pw-amount">{money(account.cash)}</span> },
               { label: 'Unrealized P&L', value: <SignedMoney value={unrealized} /> },
             ]}
           />
@@ -158,7 +161,7 @@ function PositionsTable({ positions }: { positions: Position[] }) {
                 <td className="pw-timing" translate="no">
                   {p.symbol}
                 </td>
-                <td className="pw-r">{qty(p.qty)}</td>
+                <td className="pw-r pw-amount">{qty(p.qty)}</td>
                 <td className="pw-r pw-hide-phone">{money(p.avgEntryPrice)}</td>
                 <td className="pw-r">{money(p.lastPrice)}</td>
                 <td className="pw-r">
@@ -189,8 +192,8 @@ export const Positions = memo(function Positions({ snapshot, stale }: ScreenProp
       <Readout
         cells={[
           { label: 'Open', value: String(positions.length) },
-          { label: 'Market value', value: money(value) },
-          { label: 'Unrealized P&L', value: signedFigure(unrealized), className: `pw-delta ${toneClass[tone(unrealized)]}` },
+          { label: 'Market value', value: money(value), className: 'pw-amount' },
+          { label: 'Unrealized P&L', value: signedFigure(unrealized), className: `pw-delta pw-amount ${toneClass[tone(unrealized)]}` },
           { label: 'Exposure of equity', value: pct(account.equity > 0 ? (gross / account.equity) * 100 : 0) },
         ]}
       />
@@ -204,7 +207,7 @@ export const Positions = memo(function Positions({ snapshot, stale }: ScreenProp
 const orderClass = (status: string) => (status === 'rejected' ? 'pw-sev-error' : isOpenOrder({ status }) ? 'pw-sev-warn' : 'pw-sev-info');
 
 export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
-  const { orders } = snapshot;
+  const { orders, serverTime } = snapshot;
   const rejected = orders.filter((o) => o.status === 'rejected').length;
   return (
     <div className={`pw-page ${stale ? 'pw-is-stale' : ''}`}>
@@ -216,7 +219,17 @@ export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
           { label: 'Rejected', value: String(rejected), className: rejected ? 'pw-down' : '' },
         ]}
       />
-      <Screen title={`Today, ${count(orders.length, 'order')}`} flush>
+      <Screen
+        title={`Today, ${count(orders.length, 'order')}`}
+        flush
+        aside={
+          orders.length > 0 && (
+            <a className="pw-screen-link pw-small" href={`data:text/csv;charset=utf-8,${encodeURIComponent(ordersCsv(orders))}`} download={`pitwall-orders-${et(new Date(serverTime)).date}.csv`}>
+              Download CSV
+            </a>
+          )
+        }
+      >
         {orders.length === 0 ? (
           <Empty title="No orders today.">Orders appear here as strategies trade, newest first.</Empty>
         ) : (
@@ -243,8 +256,8 @@ export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
                       {o.symbol}
                     </td>
                     <td className="pw-small pw-caps">{o.side}</td>
-                    <td className="pw-r">{qty(o.qty)}</td>
-                    <td className="pw-r pw-hide-phone">{qty(o.filledQty)}</td>
+                    <td className="pw-r pw-amount">{qty(o.qty)}</td>
+                    <td className="pw-r pw-hide-phone pw-amount">{qty(o.filledQty)}</td>
                     <td className="pw-r pw-hide-phone">{o.filledAvgPrice === null ? '' : money(o.filledAvgPrice)}</td>
                     <td>
                       <span className={`pw-status pw-small pw-caps ${orderClass(o.status)}`}>{o.status.replaceAll('_', ' ')}</span>
@@ -276,7 +289,7 @@ export const Strategies = memo(function Strategies({ snapshot, stale }: ScreenPr
           { label: 'Running', value: String(inState('running')) },
           { label: 'Paused', value: String(paused), className: paused ? 'pw-warn' : '' },
           { label: 'Halted', value: String(halted), className: halted ? 'pw-down' : '' },
-          { label: 'Today’s P&L', value: signedFigure(today), className: `pw-delta ${toneClass[tone(today)]}` },
+          { label: 'Today’s P&L', value: signedFigure(today), className: `pw-delta pw-amount ${toneClass[tone(today)]}` },
         ]}
       />
       <TimingTower strategies={strategies} limits={snapshot.limits} />

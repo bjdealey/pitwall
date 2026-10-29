@@ -84,12 +84,14 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
   
   Beside the board, the day's trace sits against the previous close as a single line, like a telemetry trace: no area fill, no gradient. Its axis spans the regular session, 09:30 to 16:00 ET, with a faint line each hour, so the trace grows across the day and the empty part is the time left. A dot in the trace's colour marks the latest sample. Like high and low water on a tide chart, the day high (in `best`, only when above the previous close) and the day low (only when below it) carry their figure and time on the curve.
   Pointing at the trace, or focusing it and using the arrow keys, Home and End, scrubs it: a dashed `muted` cursor snaps to the nearest sample and a readout at the top of the plot gives its ET time, equity and change on the day. The readout centres on the cursor and stops at the plot's edges, and the high and low labels step aside while it shows. Pointer leave, Escape or blur clears it. Screen readers get the same readout as the slider's value.
-  Warnings, errors and halts in the session stand on the axis as flags: a 3px by 12px stripe in the event log's stripe colour (`warn`, `neg`, `flag-red`). Scrubbing to a flag's sample adds the worst of them to the readout, its severity in caps and its message cut to one line, with a count of the rest. Info events get no flag.
+  Warnings, errors and halts in the session stand on the axis as flags: a 3px by 12px stripe in the event log's stripe colour (`warn`, `neg`, `flag-red`). Scrubbing to a flag's sample adds the worst of them to the readout, its severity in caps and its message cut to one line, with a count of the rest. Info events get no flag. Flags draw over the high and low labels, so a label never hides a halt.
 - **Right, below:** Positions across the full width, then Limits and Account side by side at one height, so their bottom edges meet on one line, then Events.
 
 Limit meters are a strip of 20 segments, like the rev lights on a wheel. Any use lights the first segment, so a limit that has started to fill never reads as empty.
 
-**Positions, Orders & fills and Strategies** open with a readout: equal slats with asphalt between them, a `small` label over a figure in `board` that shrinks to fit its slat. Then the screen's table or tower at the full width of the page. Strategies shows the tower wide, one line per strategy, under column headings like a standings table: Pos, Strategy, State, Today. Events lists each day at full width, with the source in its own column on the right, only as wide as its text, so messages keep the room and stay on one line down to 720px.
+Account opens with the allocation: one strip split by market value, each open position a segment lit in `control` like a meter's fill, largest first, then cash unlit in `border`, with 2px of asphalt between segments. A key under it gives each symbol and cash its percent of the whole. It shows at a glance how much of the account the strategies have put to work, and where.
+
+**Positions, Orders & fills and Strategies** open with a readout: equal slats with asphalt between them, a `small` label over a figure in `board` that shrinks to fit its slat. Then the screen's table or tower at the full width of the page. Orders & fills offers today's orders as a CSV beside its title, one row per order, newest first, with UTC times and formulas defused for spreadsheets. Strategies shows the tower wide, one line per strategy, under column headings like a standings table: Pos, Strategy, State, Today. Events lists each day at full width, with the source in its own column on the right, only as wide as its text, so messages keep the room and stay on one line down to 720px.
 
 Table headers sit on a `surface-2` band. Beside each position's P&L % a small bar shows it against the widest in the table, right of a zero line for a gain and left for a loss, in the figure's colour. Order statuses that need a look (open in `warn`, REJECTED in `neg`) sit in a chip: a 1px border in the status colour over its `-soft` tint.
 
@@ -137,6 +139,12 @@ Motion reports something or it does not run. Prices never flash on ticks. The wh
 
 Easing is `cubic-bezier(.16, 1, .3, 1)` for arrivals, and exits run faster than entrances. Moving things animate `transform` and `opacity` only: row tints and flashes are a layer behind the row that fades out, never an animated background. Colour changes on the track band and on controls may crossfade. Under `prefers-reduced-motion` nothing moves: entrances become fades, the pulse becomes a glow, row tints stay, and the hold fill still tracks the press.
 
+## Privacy mode
+
+The eye at the end of the Equity slat, and of each readout's first slat, blurs every amount of money and every quantity the account holds or trades: equity, today's change, the previous close and day high, the trace's labels and readout, buying power and cash, P&L in dollars, position and order quantities, and the daily loss limit's dollar detail. Prices, percentages, times, counts and statuses stay readable, because they are the same for everyone. Figures blur in place, so nothing moves. The choice is kept on the device, so a wall screen or a phone on the train stays hidden after a reload.
+
+It is visual only. Screen readers, the event log's messages, the dialogs and the orders CSV still give full figures, because you need them to act.
+
 ## States
 
 | State | Track band | Elsewhere |
@@ -157,6 +165,6 @@ Easing is `cubic-bezier(.16, 1, .3, 1)` for arrivals, and exits run faster than 
 
 ## Iconography
 
-Lucide, from `lucide-react`, at 18px in `currentColor`, always beside a word. The tab bar uses `gauge`, `briefcase`, `arrow-left-right`, `layers` and `activity`. Stop uses `octagon-x`, Pause all uses `pause`. The flag icon in the track band is drawn in the app: a pole and a cloth, solid or chequered.
+Lucide, from `lucide-react`, at 18px in `currentColor`, always beside a word. The tab bar uses `gauge`, `briefcase`, `arrow-left-right`, `layers` and `activity`. Stop uses `octagon-x`, Pause all uses `pause`. The privacy eye, `eye` or `eye-off` while amounts are hidden, is the one icon without a word beside it: it sits at the end of a slat's label, named and titled "Hide amounts", and its tap target reaches 44px. The flag icon in the track band is drawn in the app: a pole and a cloth, solid or chequered.
 
 There is no logo mark. The brand is the PITWALL wordmark in `wordmark` style. The home-screen icon is the letter P in Archivo 800, expanded like the wordmark, timing white on asphalt.

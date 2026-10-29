@@ -1,6 +1,7 @@
+import { Eye, EyeOff } from 'lucide-react';
 import { createContext, use, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import type { Account, EventRecord, Health, Limit, MarketSession, Mode, Severity, Strategy, StrategyState } from '../shared/domain.ts';
+import type { Account, EventRecord, Health, Limit, MarketSession, Mode, Position, Severity, Strategy, StrategyState } from '../shared/domain.ts';
 import { atET, et } from '../shared/et.ts';
 import { changePercent, count, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
 import { DEMO, HEARTBEAT_STALE_MS, sendCommand, usePost } from './data.ts';
@@ -100,7 +101,7 @@ export function MarketChip({ market, now }: { market: MarketSession; now: number
 
 export function SignedMoney({ value, className = 'pw-figure' }: { value: number; className?: string }) {
   const t = tone(value);
-  return <span className={`pw-delta ${className} ${toneClass[t]}`}>{`${signedMoney(value)} ${glyph(t)}`.trim()}</span>;
+  return <span className={`pw-delta pw-amount ${className} ${toneClass[t]}`}>{`${signedMoney(value)} ${glyph(t)}`.trim()}</span>;
 }
 
 export function Screen({ title, aside, flush = false, className = '', id, children }: { title: string; aside?: ReactNode; flush?: boolean; className?: string; id?: string; children: ReactNode }) {
@@ -124,9 +125,12 @@ export type Reading = { label: string; value: string; className?: string };
 export function Readout({ cells }: { cells: Reading[] }) {
   return (
     <dl className="pw-readout">
-      {cells.map((c) => (
+      {cells.map((c, i) => (
         <div key={c.label} className="pw-slat">
-          <dt className="pw-small pw-slat-label">{c.label}</dt>
+          <dt className="pw-small pw-slat-label pw-slat-head">
+            {c.label}
+            {i === 0 && <PrivacyToggle />}
+          </dt>
           <dd className={`pw-board pw-stat-value ${c.className ?? ''}`} style={{ '--chars': c.value.length } as CSSProperties}>
             {c.value}
           </dd>
@@ -153,6 +157,66 @@ export function Figures({ rows }: { rows: Figure[] }) {
   );
 }
 
+/** How the account splits between each open position and cash, by market value, largest position first. */
+export function Allocation({ positions, cash }: { positions: Position[]; cash: number }) {
+  // shortcut: a short counts at its absolute value and margin debt as no cash; split long and short if the bots start shorting.
+  const parts = [...positions.map((p) => ({ label: p.symbol, value: Math.abs(p.qty * p.lastPrice) })).sort((a, b) => b.value - a.value), { label: 'Cash', value: Math.max(0, cash) }];
+  const total = parts.reduce((sum, p) => sum + p.value, 0);
+  if (total <= 0) return null;
+  return (
+    <div className="pw-alloc">
+      <div className="pw-alloc-bar" aria-hidden>
+        {parts.map((p, i) => p.value > 0 && <span key={p.label} className={i === parts.length - 1 ? 'pw-alloc-cash' : ''} style={{ flexGrow: p.value }} />)}
+      </div>
+      <ul className="pw-alloc-key pw-small" aria-label="Allocation by market value">
+        {parts.map((p, i) => (
+          <li key={p.label}>
+            <span className="pw-muted" translate={i === parts.length - 1 ? undefined : 'no'}>
+              {p.label}
+            </span>
+            <span className="pw-figure">{pct((p.value / total) * 100)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const PRIVACY_KEY = 'pitwall.privacy';
+
+export type Privacy = { hidden: boolean; toggle: () => void };
+export const PrivacyContext = createContext<Privacy>({ hidden: false, toggle: () => {} });
+
+/** Privacy mode for the shell: remembered on this device, so a wall screen or phone stays hidden after a reload. */
+export function usePrivacy(): Privacy {
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem(PRIVACY_KEY) === 'hidden';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(PRIVACY_KEY, hidden ? 'hidden' : 'shown');
+    } catch {
+      // Private windows can refuse storage; the mode still works until reload.
+    }
+  }, [hidden]);
+  return { hidden, toggle: () => setHidden((h) => !h) };
+}
+
+/** The eye on the equity slat and on each readout. It blurs money and quantities for anyone looking over your shoulder; prices and percentages stay. */
+export function PrivacyToggle() {
+  const { hidden, toggle } = use(PrivacyContext);
+  const Icon = hidden ? EyeOff : Eye;
+  return (
+    <button type="button" className="pw-privacy" aria-pressed={hidden} aria-label="Hide amounts" title={hidden ? 'Show amounts' : 'Hide amounts'} onClick={toggle}>
+      <Icon className="pw-icon" aria-hidden />
+    </button>
+  );
+}
+
 const TRACE_W = 1000;
 const TRACE_H = 200;
 
@@ -166,13 +230,16 @@ export function PitBoard({ account, points, events, stale }: { account: Account;
     <section className="pw-board-wrap" aria-label="Equity">
       <div className="pw-slats">
         <div className="pw-slat pw-slat-hero">
-          <span className="pw-small pw-slat-label">Equity</span>
-          <span className="pw-hero pw-stat-value" style={{ '--chars': money(account.equity).length } as CSSProperties}>
+          <span className="pw-small pw-slat-label pw-slat-head">
+            Equity
+            <PrivacyToggle />
+          </span>
+          <span className="pw-hero pw-stat-value pw-amount" style={{ '--chars': money(account.equity).length } as CSSProperties}>
             {money(account.equity)}
           </span>
         </div>
         <div className="pw-slat pw-slat-change">
-          <span className={`pw-board pw-delta ${toneClass[t]}`}>{t === 'flat' ? money(0) : signedMoney(change)}</span>
+          <span className={`pw-board pw-delta pw-amount ${toneClass[t]}`}>{t === 'flat' ? money(0) : signedMoney(change)}</span>
           <span className={`pw-label pw-delta ${toneClass[t]}`}>
             {t === 'flat' ? pct(0) : `${changePercent(changePct)} ${glyph(t)}`} today
           </span>
@@ -180,11 +247,11 @@ export function PitBoard({ account, points, events, stale }: { account: Account;
         <div className="pw-slat pw-slat-pair">
           <div>
             <span className="pw-small pw-slat-label">Previous close</span>
-            <span className="pw-figure">{money(account.lastEquity)}</span>
+            <span className="pw-figure pw-amount">{money(account.lastEquity)}</span>
           </div>
           <div>
             <span className="pw-small pw-slat-label">Day high</span>
-            <span className={`pw-figure ${high && high.equity > account.lastEquity ? 'pw-best' : ''}`}>{high ? money(high.equity) : 'No samples yet'}</span>
+            <span className={`pw-figure ${high ? 'pw-amount' : ''} ${high && high.equity > account.lastEquity ? 'pw-best' : ''}`}>{high ? money(high.equity) : 'No samples yet'}</span>
           </div>
         </div>
       </div>
@@ -292,9 +359,6 @@ function EquityTrace({ points, baseline, high, events, stale }: { points: { at: 
           {index !== null && <line className="pw-trace-cursor" x1={x(shown.at)} x2={x(shown.at)} y1={0} y2={TRACE_H} />}
           <polyline className="pw-trace-line" points={line} />
         </svg>
-        {flags.map((e) => (
-          <span key={e.id} className={`pw-trace-flag pw-event-${e.severity}`} style={{ left: `${(x(e.at) / TRACE_W) * 100}%` }} />
-        ))}
         <span className="pw-trace-now" style={{ left: `${(x(last.at) / TRACE_W) * 100}%`, top: `${(y(last.equity) / TRACE_H) * 100}%` }} />
         {index !== null && (
           <>
@@ -302,8 +366,8 @@ function EquityTrace({ points, baseline, high, events, stale }: { points: { at: 
             <span className="pw-trace-readout" ref={readoutRef} data-x={(x(shown.at) / TRACE_W) * 100}>
               <span className="pw-trace-readout-row">
                 <span className="pw-small">{etTime(shown.at)}</span>
-                <span className="pw-figure">{money(shown.equity)}</span>
-                <span className={`pw-figure ${toneClass[tone(change)]}`}>{signedFigure(change)}</span>
+                <span className="pw-figure pw-amount">{money(shown.equity)}</span>
+                <span className={`pw-figure pw-amount ${toneClass[tone(change)]}`}>{signedFigure(change)}</span>
               </span>
               {worst && (
                 <span className="pw-trace-readout-event pw-small">
@@ -319,7 +383,7 @@ function EquityTrace({ points, baseline, high, events, stale }: { points: { at: 
           <>
             <span className="pw-trace-low" style={at(low)} />
             <span className={`pw-trace-tag pw-trace-tag-below ${edge(low)}`} style={at(low)}>
-              <span className="pw-figure">{money(low.equity)}</span>
+              <span className="pw-figure pw-amount">{money(low.equity)}</span>
               <span className="pw-small">{etTime(low.at)}</span>
             </span>
           </>
@@ -328,11 +392,15 @@ function EquityTrace({ points, baseline, high, events, stale }: { points: { at: 
           <>
             <span className="pw-trace-high" style={at(high)} />
             <span className={`pw-trace-tag pw-trace-tag-above ${edge(high)}`} style={at(high)}>
-              <span className="pw-figure pw-best">{money(high.equity)}</span>
+              <span className="pw-figure pw-best pw-amount">{money(high.equity)}</span>
               <span className="pw-small">{etTime(high.at)}</span>
             </span>
           </>
         )}
+        {/* Flags draw over the high and low labels, so a label never hides a halt. */}
+        {flags.map((e) => (
+          <span key={e.id} className={`pw-trace-flag pw-event-${e.severity}`} style={{ left: `${(x(e.at) / TRACE_W) * 100}%` }} />
+        ))}
       </div>
       <figcaption className="pw-trace-axis pw-small" aria-hidden>
         <span>{etTime(new Date(t0).toISOString())}</span>
@@ -361,7 +429,7 @@ export function LimitMeter({ limit }: { limit: Limit }) {
       <div className="pw-meter-track" role="meter" aria-label={limit.label} aria-valuemin={0} aria-valuemax={limit.max} aria-valuenow={limit.used} aria-valuetext={limit.detail}>
         <div className="pw-meter-fill" style={{ transform: `scaleX(${lit})` }} />
       </div>
-      <div className="pw-meter-sub pw-small">{limit.detail}</div>
+      <div className={`pw-meter-sub pw-small ${limit.id === 'daily-loss' ? 'pw-amount' : ''}`}>{limit.detail}</div>
     </div>
   );
 }
@@ -481,7 +549,7 @@ function TowerRow({ position, strategy, best, busy, breached, onToggle }: { posi
             {breached.map((l) => (
               <div key={l.id}>
                 <dt className="pw-small">{l.label}</dt>
-                <dd className="pw-figure">{l.detail}</dd>
+                <dd className={`pw-figure ${l.id === 'daily-loss' ? 'pw-amount' : ''}`}>{l.detail}</dd>
               </div>
             ))}
           </dl>

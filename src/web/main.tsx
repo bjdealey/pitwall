@@ -5,7 +5,7 @@ import { Activity, ArrowLeftRight, Briefcase, Gauge, Layers, OctagonX } from 'lu
 import { StrictMode, useEffect, useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { HeartbeatAgeContext, MarketChip, ModeStrip, PasscodeInput, TrackBand, trackStatus } from './components.tsx';
+import { HeartbeatAgeContext, MarketChip, ModeStrip, PasscodeInput, PrivacyContext, TrackBand, trackStatus, usePrivacy } from './components.tsx';
 import { DEMO, freshness, postJson, useNow, usePost, useSnapshot } from './data.ts';
 import { Events, Orders, Overview, PauseAllSheet, Positions, Strategies } from './screens.tsx';
 
@@ -38,6 +38,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const route = useRoute();
   const mainRef = useRef<HTMLElement>(null);
   const [pausing, setPausing] = useState(false);
+  const privacy = usePrivacy();
   const { stale, heartbeatAgeMs } = feed ? freshness(feed, now) : { stale: true, heartbeatAgeMs: Infinity };
   const status = trackStatus(feed ? { strategies: feed.snapshot.strategies, market: feed.snapshot.market, stale, heartbeatAgeMs } : null);
   useEffect(() => {
@@ -45,7 +46,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   }, [route.label]);
 
   return (
-    <div className="pw-app">
+    <div className={`pw-app ${privacy.hidden ? 'pw-private' : ''}`}>
       <button type="button" className="pw-skip pw-label" onClick={() => mainRef.current?.focus()}>
         Skip to content
       </button>
@@ -74,7 +75,9 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         <div className="pw-main">
           {feed ? (
             <HeartbeatAgeContext value={heartbeatAgeMs}>
-              <route.Screen snapshot={feed.snapshot} stale={stale} />
+              <PrivacyContext value={privacy}>
+                <route.Screen snapshot={feed.snapshot} stale={stale} />
+              </PrivacyContext>
             </HeartbeatAgeContext>
           ) : (
             <p className="pw-waiting pw-label pw-muted">Waiting for the first engine heartbeat…</p>

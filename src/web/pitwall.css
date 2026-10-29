@@ -110,6 +110,12 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-slat { display: flex; flex-direction: column; justify-content: center; gap: var(--space-1); padding: var(--space-3) var(--space-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .pw-slat-hero { flex: 1; padding: var(--space-4); }
 .pw-slat-label { color: var(--muted); }
+.pw-slat-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+/* Privacy mode: the eye sits at the end of a slat's label and its tap target reaches 44px. Money and quantities blur in place, so nothing shifts. */
+.pw-privacy { position: relative; display: inline-flex; margin: calc(-1 * var(--space-1)) 0; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; }
+.pw-privacy::after { content: ""; position: absolute; inset: 50% auto auto 50%; width: var(--tap-min); height: var(--tap-min); translate: -50% -50%; }
+.pw-privacy:hover, .pw-privacy[aria-pressed="true"] { color: var(--fg); }
+.pw-private .pw-amount { filter: blur(.3em); }
 .pw-slat-change { flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-1) var(--space-3); }
 .pw-slat-pair { flex-direction: row; justify-content: space-between; gap: var(--space-4); }
 .pw-slat-pair > div { display: flex; flex-direction: column; gap: 2px; }
@@ -233,6 +239,13 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-figures-row:last-child { padding-bottom: 0; border-bottom: 0; }
 .pw-figures dt { color: var(--muted); }
 .pw-figures dd { margin: 0; }
+/* Allocation: one strip split by market value, positions lit in `control` like a meter's fill and cash unlit, with a key underneath. It closes with a row rule, 8px above and below like the figures. */
+.pw-alloc { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: calc(var(--space-2) - var(--space-4)); padding-bottom: var(--space-2); border-bottom: 1px solid var(--border); }
+.pw-alloc-bar { display: flex; gap: 2px; height: 8px; }
+.pw-alloc-bar > span { flex-basis: 0; min-width: 2px; background: var(--control); }
+.pw-alloc-bar > .pw-alloc-cash { background: var(--border); }
+.pw-alloc-key { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: 0; padding: 0; list-style: none; }
+.pw-alloc-key li { display: inline-flex; align-items: baseline; gap: var(--space-2); }
 
 .pw-meter-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
 .pw-meter-track { height: 8px; margin-top: var(--space-2); overflow: hidden; background: var(--border); mask: repeating-linear-gradient(90deg, #000 0 calc(5% - 2px), transparent calc(5% - 2px) 5%); }
@@ -305,7 +318,7 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-login-mark { align-items: center; padding-block: var(--space-6); }
 .pw-login-mark .pw-wordmark { font-size: 32px; line-height: 36px; }
 
-.pw-is-stale .pw-stat-value, .pw-is-stale .pw-delta, .pw-is-stale .pw-table td, .pw-is-stale .pw-figures dd { color: var(--muted); }
+.pw-is-stale .pw-stat-value, .pw-is-stale .pw-delta, .pw-is-stale .pw-table td, .pw-is-stale .pw-figures dd, .pw-is-stale .pw-alloc-key .pw-figure { color: var(--muted); }
 
 @media (max-width: 1099px) {
   .pw-ov { grid-template-columns: minmax(0, 1fr); grid-template-areas: "board" "tower" "screens" "events"; }
