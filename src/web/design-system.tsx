@@ -81,7 +81,7 @@ const towerFooter = (
       </button>
       <HoldToFlatten onComplete={noop} />
     </div>
-    <p className="pw-small pw-muted pw-controls-hint">Pause all keeps positions. Flatten closes them at market after a 2-second hold and your passcode.</p>
+    <p className="pw-small pw-muted pw-controls-hint">Pause all keeps positions. Flatten closes them at market after a 2‑second hold and your passcode.</p>
     <SystemReadout health={health} heartbeatAt={snapshot.heartbeatAt} />
   </>
 );
@@ -273,8 +273,9 @@ Source: \`Shell\` in \`src/web/main.tsx\`.`,
 
 **Use:**
 - Slat one is equity in \`hero\`. Slat two is today's change in \`board\` with its percent and ▲ or ▼. Slat three pairs the previous close with the day high.
-- The day high and its dot on the trace are \`best\` (sector purple) only when above the previous close.
-- The trace fills to the previous close, a dashed \`control\` line, in \`pos\` or \`neg\` by today's direction. Times along the axis are ET.
+- The day high and its dot on the trace are \`best\` (sector purple) only when above the previous close. On the trace the high carries its figure and ET time above its dot, and the day low, only when below the previous close, carries them below its \`muted\` dot. Labels near either end hang inward.
+- The trace is a single line in \`pos\` or \`neg\` by today's direction against the previous close, a dashed \`control\` line. No area fill or gradient. Times along the axis are ET.
+- The axis spans the regular session, 09:30 to 16:00 ET, with a faint line each hour, and widens only if samples fall outside it. The empty part is the time left. A dot marks the latest sample.
 - A change under 0.01% reads "<0.01%", never a signed zero.
 - Stale figures and the trace fade to \`muted\`.
 
@@ -292,21 +293,21 @@ Source: \`PitBoard\` in \`src/web/components.tsx\`.`,
     subtitle: 'ranked strategies, controls and system readout',
     body: (
       <div style={pad}>
-        <TimingTower strategies={[spy, qqqPaused, iwmHalted]} footer={towerFooter} />
+        <TimingTower strategies={[spy, qqqPaused, iwmHalted]} limits={strainedLimits} footer={towerFooter} />
       </div>
     ),
     readme: `Strategies ranked like an F1 timing tower, by today's P&L, with their switches, and the emergency controls at its foot.
 
-**Provide:** the strategies, and on Overview a footer with Pause all, HoldToFlatten, the hint and the SystemReadout.
+**Provide:** the strategies, the limits, and on Overview a footer with Pause all, HoldToFlatten, the hint and the SystemReadout.
 
 **Use:**
 - Rows show the position in a box, the strategy ID in \`timing\`, today's gain or loss and a switch. The leader's box is inverted to timing white. The leader's gain is \`best\` when it is up and there is more than one strategy.
 - A 3px stripe down the row's left edge carries its state: \`pos\`, \`warn\` or \`flag-red\`.
-- The meta line shows a status value in capitals (RUNNING in \`pos\`, PAUSED in \`warn\`, HALTED as a \`flag-red\` chip), the symbol and fills today. A halted row adds the reason verbatim.
-- The switch is on only while running. Turning it off pauses that strategy at once; turning it on asks first in a ConfirmSheet that names the strategy. The knob pulses while the engine applies the command.
-- A row flashes its state colour once when its state changes.
+- The meta line shows a status value in capitals (RUNNING in \`pos\`, PAUSED in \`warn\`, HALTED as a \`flag-red\` chip), the symbol and fills today. A halted row adds the reason verbatim, then labelled figures: Halted at, and each breached limit with its detail. Pass \`limits\` for those.
+- The switch is on only while running. Turning it off pauses that strategy at once; turning it on asks first in a ConfirmSheet that names the strategy. The switch is a square hardware toggle: a \`pos\` knob on \`pos-soft\` when on. The knob pulses while the engine applies the command.
+- A row flashes its state colour once when its state changes. When the ranking changes, rows slide to their new places (480ms); reduced motion swaps them at once.
 - The tower is \`tower-w\` wide on desktop and full width below 1100px. On Overview it stays in view while the page scrolls, when the window is at least 720px tall.
-- From 640px wide, as on Strategies, each row reads on one line: position, ID, meta, gain, switch.
+- From 640px wide, as on Strategies, each row reads on one line: position, ID, meta, gain, switch, under column headings in \`small\` \`muted\` with a \`control\` rule. A wide tower with a footer keeps the controls 360px wide and lays the SystemReadout beside them in three columns.
 
 **Don't:**
 - Don't offer "Resume all". Resume is per strategy and never automatic.
@@ -336,6 +337,7 @@ Source: \`TimingTower\` in \`src/web/components.tsx\`.`,
 - Broker shows "connected" with a \`pos\` light or "down" with a \`neg\` light.
 - CPU shows the temperature and "throttled" when the Pi throttles; a \`warn\` light from 75°C. Disk warns from 80% and turns \`neg\` from 95%.
 - Memory and uptime are plain figures. CPU and disk drop out when the host cannot report them.
+- CPU, disk and memory carry a 10-segment strip under the figure: CPU toward 85°C, where the Pi throttles, disk and memory toward full. The strip takes the cell's warning colour.
 
 **Don't:**
 - Don't put a light on a cell that has nothing to warn about.
@@ -363,7 +365,7 @@ Source: \`SystemReadout\` in \`src/web/components.tsx\`.`,
 
 **Use:**
 - Three meters on Overview: daily loss, rejections in a row and broker silence.
-- The track is a strip of 20 segments. Whole segments light, and any use lights the first one.
+- The track is a strip of 20 segments. Whole segments light, and any use lights the first one. A new reading fills toward its level over 480ms; reduced motion jumps.
 - The fill is \`control\` while calm, \`warn\` from 75%, \`neg\` when breached, and the percent takes the same colour.
 - The detail line is the engine's own words: "$1,560.00 of $2,000.00".
 - The track is an ARIA meter with the detail as its value text.
@@ -458,11 +460,12 @@ Source: \`Readout\` in \`src/web/components.tsx\`.`,
 
 **Use:**
 - Headers in \`small\` and \`muted\` on a \`surface-2\` band; cells in \`figure\`; symbols in \`timing\`. Numbers align right.
+- A position's P&L % carries a 64px bar against the widest in the table, either side of a zero line, in the figure's colour.
 - Rows are \`row-h\` tall and alternate \`surface\` and \`surface-2\`.
 - Sides and statuses are status values in capitals. Rejected is \`neg\`, open is \`warn\`, done is \`muted\`. Rejected and open statuses sit in a chip: a border in their colour over its \`-soft\` tint.
 - Order times are ET. An order with no strategy reads "manual".
 - A position row tints once when its quantity changes.
-- Below 900px the secondary columns hide and the table scrolls sideways if it must.
+- Below 900px the secondary columns hide and columns sit 16px apart (8px below 360px), with the outer edges kept at 16px, so Orders & fills fits a 320px phone. The table scrolls sideways only if it still must.
 
 **Don't:**
 - Don't colour a whole row by gain or loss. Only the P&L cells carry direction.
@@ -530,7 +533,7 @@ Source: \`SignedMoney\` in \`src/web/components.tsx\`; formats in \`src/shared/f
 
 **Use:**
 - Time is local 24-hour in \`small\` \`muted\`. Severity is a status value: INFO \`muted\`, WARN \`warn\`, ERROR and HALT \`neg\`.
-- The message uses \`body\` and wraps; the source sits under it in \`muted\`, or in its own right-hand column when the log is at least 720px wide. A folded row says how often: "broker, 3 times since 16:47:05".
+- The message uses \`body\` and wraps; the source sits under it in \`muted\`, or in its own right-hand column, only as wide as its text, when the log is at least 720px wide. A folded row says how often: "broker, 3 times since 16:47:05".
 - WARN, ERROR and HALT rows carry a 3px stripe down the left edge in their colour.
 - The full log groups rows under a Screen per day.
 - A new row drops in and its tint fades over 1.6s.
@@ -677,11 +680,11 @@ Source: \`HoldToFlatten\` in \`src/web/components.tsx\`.`,
                 Flatten all positions?
               </h2>
               <div className="pw-body pw-sheet-body">
-                <ul>
+                <ol className="pw-steps">
                   <li>Pauses every strategy.</li>
                   <li>Cancels 1 open order.</li>
                   <li>Closes 2 positions at market.</li>
-                </ul>
+                </ol>
                 <PasscodeInput value="" onChange={noop} error={null} help="Flatten always asks for the passcode." />
               </div>
               <div className="pw-sheet-actions">
@@ -703,9 +706,9 @@ Source: \`HoldToFlatten\` in \`src/web/components.tsx\`.`,
 
 **Use:**
 - \`surface\` with \`radius-md\` and \`shadow-sheet\` over \`scrim\`; it fades and rises in 200ms.
-- The body is a list of effects with live counts: "Cancels 1 open order."
+- The body lists the effects in the order the engine applies them, numbered in boxes like tower positions, with live counts: "Cancels 1 open order."
 - Focus starts on Cancel, Tab stays inside, Escape or a click on the backdrop cancels, and focus returns to the control that opened it.
-- Pause all and Flatten confirm with \`pw-btn-danger\`; Resume confirms with \`pw-btn-primary\`. Flatten adds a PasscodeInput.
+- Pause all and Flatten confirm with \`pw-btn-danger\`, and their sheets carry a 4px \`flag-red\` top edge with square top corners; Resume confirms with \`pw-btn-primary\` and has none. Flatten adds a PasscodeInput.
 - It scrolls inside itself on short screens.
 
 **Don't:**

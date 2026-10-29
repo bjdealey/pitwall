@@ -105,14 +105,18 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   return (
     <div className="pw-login">
       <ModeStrip mode={null} />
-      <form className="pw-login-board" onSubmit={submit}>
-        <h1 className="pw-wordmark" translate="no">
-          PITWALL
-        </h1>
-        <PasscodeInput value={passcode} onChange={setPasscode} error={error} attempt={attempt} help="Sign in to watch and stop the bot." />
-        <button type="submit" className="pw-btn pw-btn-primary" disabled={busy}>
-          {busy ? 'Checking…' : 'Sign in'}
-        </button>
+      <form className="pw-login-form" onSubmit={submit}>
+        <div className="pw-login-board pw-login-mark">
+          <h1 className="pw-wordmark" translate="no">
+            PITWALL
+          </h1>
+        </div>
+        <div className="pw-login-board">
+          <PasscodeInput value={passcode} onChange={setPasscode} error={error} attempt={attempt} help="Sign in to watch and stop the bot." />
+          <button type="submit" className="pw-btn pw-btn-primary" disabled={busy}>
+            {busy ? 'Checking…' : 'Sign in'}
+          </button>
+        </div>
       </form>
     </div>
   );

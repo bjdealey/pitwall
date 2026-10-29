@@ -11,6 +11,15 @@
         ],
         "createdAt": "2026-10-29T22:02:48.198Z",
         "reason": "Claude's decision: 3px state stripes on tower rows and event rows encode RUNNING/PAUSED/HALTED and WARN/ERROR/HALT, the F1 timing-tower team-colour motif; documented in design/brand-book.md (Colour > Stripes) as part of the user's chosen 'push pit wall harder' direction"
+      },
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "src/web/pitwall.css"
+        ],
+        "createdAt": "2026-10-29T22:27:48.798Z",
+        "reason": "Claude's decision: the only match is the danger sheet's 4px flag-red top edge, whose top corners are set to 0 in the same rule (computed border-radius 0px 0px 4px 4px, checked in the browser), so the border no longer meets a rounded corner"
       }
     ]
   }

@@ -1,5 +1,5 @@
 import { Pause } from 'lucide-react';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Position, Snapshot } from '../shared/domain.ts';
 import { count, etClock, glyph, money, pct, qty, signedPct, tone } from '../shared/format.ts';
 import { isOpenOrder } from '../shared/orders.ts';
@@ -45,6 +45,7 @@ export const Overview = memo(function Overview({ snapshot, stale }: ScreenProps)
       <div className="pw-ov-tower">
         <TimingTower
           strategies={strategies}
+          limits={limits}
           footer={
             <>
               <div className="pw-controls">
@@ -54,7 +55,7 @@ export const Overview = memo(function Overview({ snapshot, stale }: ScreenProps)
                 </button>
                 <HoldToFlatten onComplete={() => setFlattening(true)} />
               </div>
-              <p className="pw-small pw-muted pw-controls-hint">Pause all keeps positions. Flatten closes them at market after a 2-second hold and your passcode.</p>
+              <p className="pw-small pw-muted pw-controls-hint">Pause all keeps positions. Flatten closes them at market after a 2‑second hold and your passcode.</p>
               <SystemReadout health={health} heartbeatAt={heartbeatAt} />
             </>
           }
@@ -104,11 +105,11 @@ function FlattenSheet({ snapshot, onClose }: { snapshot: Snapshot; onClose: () =
   const { error, attempt, busy, send } = usePost(() => sendCommand({ kind: 'flatten' }, passcode), onClose);
   return (
     <ConfirmSheet title="Flatten all positions?" confirmLabel="Flatten" confirmClass="pw-btn-danger" busy={busy} onConfirm={send} onCancel={onClose}>
-      <ul>
+      <ol className="pw-steps">
         <li>Pauses every strategy.</li>
         <li>{openOrdersLine(snapshot)}</li>
         <li>{`Closes ${count(snapshot.positions.length, 'position')} at market.`}</li>
-      </ul>
+      </ol>
       <PasscodeInput value={passcode} onChange={setPasscode} error={error} attempt={attempt} help={DEMO ? 'Demo: any passcode works.' : 'Flatten always asks for the passcode.'} />
     </ConfirmSheet>
   );
@@ -118,11 +119,11 @@ export function PauseAllSheet({ snapshot, onClose }: { snapshot: Snapshot | null
   const { error, attempt, busy, send } = usePost(() => sendCommand({ kind: 'pause-all' }), onClose);
   return (
     <ConfirmSheet title="Pause all strategies?" confirmLabel="Pause all" confirmClass="pw-btn-danger" busy={busy} error={error} attempt={attempt} onConfirm={send} onCancel={onClose}>
-      <ul>
+      <ol className="pw-steps">
         <li>{snapshot ? `Stops new orders from ${count(snapshot.strategies.filter((s) => s.state.kind === 'running').length, 'running strategy', 'running strategies')}.` : 'Stops new orders from every strategy.'}</li>
         <li>{openOrdersLine(snapshot)}</li>
         <li>{snapshot ? `Keeps ${count(snapshot.positions.length, 'position')} open.` : 'Keeps positions open.'}</li>
-      </ul>
+      </ol>
     </ConfirmSheet>
   );
 }
@@ -133,6 +134,7 @@ function PositionsTable({ positions }: { positions: Position[] }) {
     lastQty.current = new Map(positions.map((p) => [p.symbol, p.qty]));
   });
   if (positions.length === 0) return <Empty title="No open positions.">Strategies open them on their next signal while the market is open.</Empty>;
+  const widest = Math.max(...positions.map((p) => Math.abs(p.unrealizedPlPct))) || 1;
   return (
     <div className="pw-table-wrap">
       <table className="pw-table">
@@ -162,7 +164,12 @@ function PositionsTable({ positions }: { positions: Position[] }) {
                 <td className="pw-r">
                   <SignedMoney value={p.unrealizedPl} />
                 </td>
-                <td className={`pw-r pw-hide-phone ${toneClass[t]}`}>{`${signedPct(p.unrealizedPlPct)} ${glyph(t)}`.trim()}</td>
+                <td className={`pw-r pw-hide-phone ${toneClass[t]}`}>
+                  <span className="pw-pl">
+                    <span className="pw-pl-bar" style={{ '--pl': p.unrealizedPlPct / widest } as CSSProperties} aria-hidden />
+                    {`${signedPct(p.unrealizedPlPct)} ${glyph(t)}`.trim()}
+                  </span>
+                </td>
               </tr>
             );
           })}
@@ -272,7 +279,7 @@ export const Strategies = memo(function Strategies({ snapshot, stale }: ScreenPr
           { label: 'Today’s P&L', value: signedFigure(today), className: `pw-delta ${toneClass[tone(today)]}` },
         ]}
       />
-      <TimingTower strategies={strategies} />
+      <TimingTower strategies={strategies} limits={snapshot.limits} />
     </div>
   );
 });

@@ -1,7 +1,7 @@
 import { createContext, use, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Account, EventRecord, Health, Limit, MarketSession, Mode, Severity, Strategy, StrategyState } from '../shared/domain.ts';
-import { et } from '../shared/et.ts';
+import { atET, et } from '../shared/et.ts';
 import { changePercent, count, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
 import { DEMO, HEARTBEAT_STALE_MS, sendCommand, usePost } from './data.ts';
 
@@ -194,7 +194,6 @@ export function PitBoard({ account, points, stale }: { account: Account; points:
 }
 
 function EquityTrace({ points, baseline, high, stale }: { points: { at: string; equity: number }[]; baseline: number; high: { at: string; equity: number } | null; stale: boolean }) {
-  const fadeId = useId();
   const first = points[0];
   const last = points[points.length - 1];
   if (!first || !last || points.length < 2) {
@@ -204,49 +203,68 @@ function EquityTrace({ points, baseline, high, stale }: { points: { at: string; 
       </figure>
     );
   }
-  const t0 = Date.parse(first.at);
-  const span = Date.parse(last.at) - t0 || 1;
+  // The axis spans the regular session, so the trace grows across the day and the empty part is the time left.
+  // shortcut: early-close days still run to 16:00, Alpaca's /v2/calendar is the upgrade.
+  const day = new Date(first.at);
+  const t0 = Math.min(Date.parse(first.at), Date.parse(atET(day, '09:30')));
+  const t1 = Math.max(Date.parse(last.at), Date.parse(atET(day, '16:00')));
+  const span = t1 - t0 || 1;
+  const x = (at: string) => ((Date.parse(at) - t0) / span) * TRACE_W;
+  const hours = [10, 11, 12, 13, 14, 15].map((h) => x(atET(day, `${h}:00`)));
   const values = points.map((p) => p.equity);
   const lo = Math.min(...values, baseline);
   const hi = Math.max(...values, baseline);
-  const pad = (hi - lo) * 0.2 || Math.max(1, Math.abs(baseline) * 0.001);
-  const x = (at: string) => ((Date.parse(at) - t0) / span) * TRACE_W;
+  // Headroom above and below for the day high and low labels.
+  const pad = (hi - lo) * 0.4 || Math.max(1, Math.abs(baseline) * 0.001);
   const y = (v: number) => TRACE_H - ((v - (lo - pad)) / (hi - lo + 2 * pad)) * TRACE_H;
   const line = points.map((p) => `${x(p.at).toFixed(1)},${y(p.equity).toFixed(1)}`).join(' ');
   const baseY = y(baseline);
   const moved = Math.max(...values) > Math.min(...values);
-  // The fill fades from the line toward the previous close, on whichever side of it the day is.
-  const peakY = Math.min(baseY, ...points.map((p) => y(p.equity)));
-  const troughY = Math.max(baseY, ...points.map((p) => y(p.equity)));
+  const low = points.reduce((worst, p) => (p.equity < worst.equity ? p : worst), first);
+  const showHigh = moved && !stale && high !== null && high.equity > baseline;
+  const showLow = moved && !stale && low.equity < baseline;
+  const at = (p: { at: string; equity: number }) => ({ left: `${(x(p.at) / TRACE_W) * 100}%`, top: `${(y(p.equity) / TRACE_H) * 100}%` });
+  // Near either end a label hangs inward from its dot, so it stays inside the plot.
+  const edge = (p: { at: string }) => (x(p.at) < TRACE_W * 0.12 ? 'pw-trace-tag-start' : x(p.at) > TRACE_W * 0.88 ? 'pw-trace-tag-end' : '');
   return (
     <figure className={`pw-trace ${toneClass[stale ? 'flat' : tone(last.equity - baseline)]}`} aria-hidden>
       <div className="pw-trace-plot">
         <svg viewBox={`0 0 ${TRACE_W} ${TRACE_H}`} preserveAspectRatio="none" aria-hidden>
-          <defs>
-            <linearGradient id={fadeId} gradientUnits="userSpaceOnUse" x1={0} x2={0} y1={peakY} y2={troughY}>
-              <stop offset={0} stopColor="currentColor" stopOpacity={baseY > peakY ? 0.28 : 0} />
-              <stop offset={(baseY - peakY) / (troughY - peakY || 1)} stopColor="currentColor" stopOpacity={0} />
-              <stop offset={1} stopColor="currentColor" stopOpacity={troughY > baseY ? 0.28 : 0} />
-            </linearGradient>
-          </defs>
           {[0.25, 0.5, 0.75].map((f) => (
             <line key={f} className="pw-trace-grid" x1={0} x2={TRACE_W} y1={TRACE_H * f} y2={TRACE_H * f} />
           ))}
-          {moved && <polygon points={`0,${baseY} ${line} ${TRACE_W},${baseY}`} fill={`url(#${fadeId})`} />}
+          {hours.map((hx) => (
+            <line key={hx} className="pw-trace-grid" x1={hx} x2={hx} y1={0} y2={TRACE_H} />
+          ))}
           <line className="pw-trace-base" x1={0} x2={TRACE_W} y1={baseY} y2={baseY} />
           <polyline className="pw-trace-line" points={line} />
         </svg>
-        <span className="pw-trace-now" style={{ left: '100%', top: `${(y(last.equity) / TRACE_H) * 100}%` }} />
-        {moved && high && high.equity > baseline && !stale && (
-          <span className="pw-trace-high" style={{ left: `${(x(high.at) / TRACE_W) * 100}%`, top: `${(y(high.equity) / TRACE_H) * 100}%` }} title={`Day high ${money(high.equity)}`} />
+        <span className="pw-trace-now" style={{ left: `${(x(last.at) / TRACE_W) * 100}%`, top: `${(y(last.equity) / TRACE_H) * 100}%` }} />
+        {showLow && (
+          <>
+            <span className="pw-trace-low" style={at(low)} />
+            <span className={`pw-trace-tag pw-trace-tag-below ${edge(low)}`} style={at(low)}>
+              <span className="pw-figure">{money(low.equity)}</span>
+              <span className="pw-small">{etTime(low.at)}</span>
+            </span>
+          </>
+        )}
+        {showHigh && (
+          <>
+            <span className="pw-trace-high" style={at(high)} />
+            <span className={`pw-trace-tag pw-trace-tag-above ${edge(high)}`} style={at(high)}>
+              <span className="pw-figure pw-best">{money(high.equity)}</span>
+              <span className="pw-small">{etTime(high.at)}</span>
+            </span>
+          </>
         )}
       </div>
       <figcaption className="pw-trace-axis pw-small">
-        <span>{etTime(first.at)}</span>
+        <span>{etTime(new Date(t0).toISOString())}</span>
         <span className="pw-trace-legend">
           <span className="pw-trace-swatch" aria-hidden /> Previous close
         </span>
-        <span>{etTime(last.at)}</span>
+        <span>{etTime(new Date(t1).toISOString())}</span>
       </figcaption>
     </figure>
   );
@@ -293,7 +311,8 @@ export function SystemReadout({ health, heartbeatAt }: { health: Health; heartbe
   const cpu = health.cpuTempC;
   const disk = health.diskUsedPct;
   const warnLight = (on: boolean, level: 'warn' | 'neg' = 'warn') => (on ? <span className={`pw-light pw-light-${level}`} /> : null);
-  const cells: { label: ReactNode; value: string }[] = [
+  const cpuWarn = Boolean(health.throttled) || (cpu !== null && cpu >= 75);
+  const cells: { label: ReactNode; value: string; meter?: { ratio: number; level: string } }[] = [
     {
       label: (
         <>
@@ -311,15 +330,35 @@ export function SystemReadout({ health, heartbeatAt }: { health: Health; heartbe
       value: health.brokerConnected ? 'connected' : 'down',
     },
   ];
-  if (cpu !== null) cells.push({ label: <>{warnLight(Boolean(health.throttled) || cpu >= 75)} CPU</>, value: `${cpu.toFixed(0)}°C${health.throttled ? ' throttled' : ''}` });
-  if (disk !== null) cells.push({ label: <>{warnLight(disk >= 80, disk >= 95 ? 'neg' : 'warn')} Disk</>, value: pct(disk) });
-  cells.push({ label: 'Memory', value: `${(health.memUsedBytes / GB).toFixed(1)} of ${(health.memTotalBytes / GB).toFixed(0)}\u00a0GB` }, { label: 'Uptime', value: duration(health.uptimeS) });
+  // The CPU meter fills toward 85°C, where a Pi 5 throttles.
+  if (cpu !== null) cells.push({ label: <>{warnLight(cpuWarn)} CPU</>, value: `${cpu.toFixed(0)}°C${health.throttled ? ' throttled' : ''}`, meter: { ratio: cpu / 85, level: cpuWarn ? 'pw-meter-warn' : '' } });
+  if (disk !== null)
+    cells.push({
+      label: <>{warnLight(disk >= 80, disk >= 95 ? 'neg' : 'warn')} Disk</>,
+      value: pct(disk),
+      meter: { ratio: disk / 100, level: disk >= 95 ? 'pw-meter-crit' : disk >= 80 ? 'pw-meter-warn' : '' },
+    });
+  cells.push(
+    {
+      label: 'Memory',
+      value: `${(health.memUsedBytes / GB).toFixed(1)} of ${(health.memTotalBytes / GB).toFixed(0)}\u00a0GB`,
+      meter: { ratio: health.memTotalBytes ? health.memUsedBytes / health.memTotalBytes : 0, level: '' },
+    },
+    { label: 'Uptime', value: duration(health.uptimeS) },
+  );
   return (
     <dl className="pw-system" aria-label="System">
       {cells.map((c, i) => (
         <div key={i}>
           <dt className="pw-small">{c.label}</dt>
-          <dd className="pw-figure">{c.value}</dd>
+          <dd className="pw-figure">
+            {c.value}
+            {c.meter && (
+              <span className={`pw-meter-track ${c.meter.level}`} aria-hidden>
+                <span className="pw-meter-fill" style={{ transform: `scaleX(${Math.ceil(Math.min(1, c.meter.ratio) * 10) / 10})` }} />
+              </span>
+            )}
+          </dd>
         </div>
       ))}
     </dl>
@@ -328,7 +367,7 @@ export function SystemReadout({ health, heartbeatAt }: { health: Health; heartbe
 
 const STATE_WORD: Record<StrategyState['kind'], string> = { running: 'RUNNING', paused: 'PAUSED', halted: 'HALTED' };
 
-function TowerRow({ position, strategy, best, busy, onToggle }: { position: number; strategy: Strategy; best: boolean; busy: boolean; onToggle: () => void }) {
+function TowerRow({ position, strategy, best, busy, breached, onToggle }: { position: number; strategy: Strategy; best: boolean; busy: boolean; breached: Limit[]; onToggle: () => void }) {
   const { id, symbol, state, todayPl, fillsToday } = strategy;
   // Flash and pop only after a change seen on screen, not on first paint.
   const [shownKind, setShownKind] = useState(state.kind);
@@ -338,7 +377,7 @@ function TowerRow({ position, strategy, best, busy, onToggle }: { position: numb
     setChanged(true);
   }
   return (
-    <li className={`pw-tower-row pw-state-${state.kind}`}>
+    <li className={`pw-tower-row pw-state-${state.kind}`} data-id={id}>
       {changed && <span key={state.kind} className={`pw-row-flash pw-row-flash-${state.kind}`} aria-hidden />}
       <span className="pw-tower-pos pw-timing">{position}</span>
       <span className="pw-tower-id pw-timing" translate="no">
@@ -356,13 +395,29 @@ function TowerRow({ position, strategy, best, busy, onToggle }: { position: numb
         <span>{count(fillsToday, 'fill')} today</span>
         {state.kind === 'paused' && <span>since {localClock(state.at)}</span>}
       </span>
-      {state.kind === 'halted' && <p className="pw-tower-reason pw-small">{state.reason}</p>}
+      {state.kind === 'halted' && (
+        <div className="pw-tower-reason">
+          <p className="pw-small">{state.reason}</p>
+          <dl className="pw-tower-halt">
+            <div>
+              <dt className="pw-small">Halted at</dt>
+              <dd className="pw-figure">{localClock(state.at)}</dd>
+            </div>
+            {breached.map((l) => (
+              <div key={l.id}>
+                <dt className="pw-small">{l.label}</dt>
+                <dd className="pw-figure">{l.detail}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
     </li>
   );
 }
 
 /** Strategies ranked like a timing tower: by today's P&L, best first. Pausing is immediate; resuming asks first. */
-export function TimingTower({ strategies, footer }: { strategies: Strategy[]; footer?: ReactNode }) {
+export function TimingTower({ strategies, limits = [], footer }: { strategies: Strategy[]; limits?: Limit[]; footer?: ReactNode }) {
   const [pending, setPending] = useState<{ id: string; kinds: string } | null>(null);
   const [resuming, setResuming] = useState<Strategy | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -372,6 +427,27 @@ export function TimingTower({ strategies, footer }: { strategies: Strategy[]; fo
   const busy = pending?.id ?? null;
   const ranked = strategies.toSorted((a, b) => b.todayPl - a.todayPl);
   const leader = ranked[0];
+  const breached = limits.filter((l) => l.breached);
+
+  // An overtake slides each row from its old place to its new one, like a timing tower. Rows are measured every
+  // render so a halt reason appearing above never skews the next slide; first paint and reduced motion don't move.
+  const listRef = useRef<HTMLOListElement>(null);
+  const order = ranked.map((s) => s.id).join();
+  const placed = useRef<{ order: string; tops: Map<string, number> } | null>(null);
+  useLayoutEffect(() => {
+    const rows = [...(listRef.current?.children ?? [])] as HTMLElement[];
+    const tops = new Map(rows.map((r) => [r.dataset.id ?? '', r.offsetTop]));
+    const before = placed.current;
+    placed.current = { order, tops };
+    if (!before || before.order === order || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    for (const row of rows) {
+      const from = before.tops.get(row.dataset.id ?? '');
+      const to = tops.get(row.dataset.id ?? '');
+      if (from === undefined || to === undefined || from === to) continue;
+      // The row gaining places passes over the one it overtakes.
+      row.animate([{ translate: `0 ${from - to}px`, zIndex: from > to ? 1 : 0 }, { translate: '0 0', zIndex: from > to ? 1 : 0 }], { duration: 480, easing: 'cubic-bezier(.16, 1, .3, 1)' });
+    }
+  });
 
   const pause = async (s: Strategy) => {
     setPending({ id: s.id, kinds });
@@ -397,18 +473,27 @@ export function TimingTower({ strategies, footer }: { strategies: Strategy[]; fo
           List them in <span translate="no">PITWALL_STRATEGIES</span> in <span translate="no">.env</span>.
         </Empty>
       ) : (
-        <ol className="pw-tower-list">
-          {ranked.map((s, i) => (
-            <TowerRow
-              key={s.id}
-              position={i + 1}
-              strategy={s}
-              best={s === leader && s.todayPl > 0 && ranked.length > 1}
-              busy={busy === s.id}
-              onToggle={() => (s.state.kind === 'running' ? pause(s) : setResuming(s))}
-            />
-          ))}
-        </ol>
+        <>
+          <div className="pw-tower-cols pw-small" aria-hidden>
+            <span>Pos</span>
+            <span>Strategy</span>
+            <span>State</span>
+            <span>Today</span>
+          </div>
+          <ol className="pw-tower-list" ref={listRef}>
+            {ranked.map((s, i) => (
+              <TowerRow
+                key={s.id}
+                position={i + 1}
+                strategy={s}
+                best={s === leader && s.todayPl > 0 && ranked.length > 1}
+                busy={busy === s.id}
+                breached={breached}
+                onToggle={() => (s.state.kind === 'running' ? pause(s) : setResuming(s))}
+              />
+            ))}
+          </ol>
+        </>
       )}
       {error && (
         <p className="pw-help-error pw-label pw-tower-error" role="alert">
