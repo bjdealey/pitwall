@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { marketSession } from './market-session.ts';
 
-const monday = { isOpen: false, nextOpen: '2026-10-12T13:30:00.000Z', nextClose: '2026-10-12T20:00:00.000Z' };
+const monday = { isOpen: false, sessionOpen: '2026-10-12T13:30:00.000Z', nextOpen: '2026-10-12T13:30:00.000Z', nextClose: '2026-10-12T20:00:00.000Z' };
 
 test('an open clock is OPEN until the close', () => {
   const clock = { ...monday, isOpen: true };
@@ -27,6 +27,6 @@ test('16:00 to 20:00 ET on a weekday is AFTER and ends at 20:00 ET', () => {
 });
 
 test('weekend evenings are CLOSED', () => {
-  const nextMonday = { isOpen: false, nextOpen: '2026-10-19T13:30:00.000Z', nextClose: '2026-10-19T20:00:00.000Z' };
+  const nextMonday = { ...monday, nextOpen: '2026-10-19T13:30:00.000Z', nextClose: '2026-10-19T20:00:00.000Z' };
   assert.equal(marketSession(nextMonday, new Date('2026-10-17T21:00:00Z')).state, 'closed');
 });
