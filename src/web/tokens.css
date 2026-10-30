@@ -1,9 +1,10 @@
 /* Generated from design/tokens.json by `npm run tokens`. Do not edit. */
 
 :root, [data-theme="dark"] {
-  --bg: #0e0f11;
+  --bg: #17191c;
   --surface: #000000;
-  --surface-2: #0d0e10;
+  --surface-2: #121316;
+  --surface-3: #202327;
   --border: #2c2f34;
   --control: #6b7178;
   --fg: #f4f4f1;
@@ -37,6 +38,7 @@
   --bg: #e9e8e3;
   --surface: #ffffff;
   --surface-2: #f5f4f0;
+  --surface-3: #dcdad3;
   --border: #d4d1c9;
   --control: #767a80;
   --fg: #000000;
@@ -71,6 +73,7 @@
     --bg: #e9e8e3;
     --surface: #ffffff;
     --surface-2: #f5f4f0;
+    --surface-3: #dcdad3;
     --border: #d4d1c9;
     --control: #767a80;
     --fg: #000000;

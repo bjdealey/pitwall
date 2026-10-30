@@ -172,7 +172,7 @@ Source: \`TrackBand\` and \`trackStatus\` in \`src/web/components.tsx\`.`,
 **Provide:** the market session from the snapshot, and the current time so the chip can add a weekday when the change is not today.
 
 **Use:**
-- It sits in the gantry beside Stop, \`chip-h\` tall, with a status light: \`pos\` when open, an outlined ring for pre-market and after-hours, \`muted\` when closed.
+- It sits in the gantry beside Stop, \`chip-h\` tall on a \`surface-2\` key with no outline, with a status light: \`pos\` when open, an outlined ring for pre-market and after-hours, \`muted\` when closed.
 - Times are always ET and labelled: "closes 16:00 ET".
 - The chip is a button. Tapping it opens a popover under it with the whole line: "Market open, closes 16:00 ET." Screen readers hear the same line as its name.
 - Where the gantry has no room, the chip folds its next change below 460px, then below 360px any state longer than Open, leaving the light. The popover still holds everything.
@@ -312,14 +312,14 @@ Source: \`PitBoard\` in \`src/web/components.tsx\`.`,
 **Provide:** the strategies, the limits, and on Overview a footer with Pause all, HoldToFlatten, the hint and the SystemReadout.
 
 **Use:**
-- The heading is \`heading\` after a slanted tab, like a Screen's.
-- Rows show the position in a 32px box, the strategy ID in \`timing\`, today's gain or loss and a switch. Position and gain are \`timing\` stepped up to 21px and heavier, the tower's loudest figures. The gain shrinks with the tower, to 16px at a 288px tower, so the ID keeps one line. The leader's box is inverted to timing white. The leader's gain is \`best\` when it is up and there is more than one strategy.
+- The heading is \`heading\` on a slanted timing-white plate, on a \`surface-3\` band, like a Screen's.
+- Rows alternate \`surface\` and \`surface-2\`, with no rule between them. Each shows the position in a 32px box filled in \`border\`, the strategy ID in \`timing\`, today's gain or loss and a switch. Position and gain are \`timing\` stepped up to 21px and heavier, the tower's loudest figures. The gain shrinks with the tower, to 16px at a 288px tower, so the ID keeps one line. The leader's box is inverted to timing white. The leader's gain is \`best\` when it is up and there is more than one strategy.
 - A 3px bar beside the position box carries its state, where a timing tower puts the team colour: \`pos\`, \`warn\` or \`flag-red\`. Never a stripe down the row's edge.
 - The meta line shows a status value in capitals (RUNNING in \`pos\`, PAUSED in \`warn\`, HALTED as a \`flag-red\` chip), the symbol and fills today. The status value is as wide as RUNNING, so a state change never nudges the symbol after it. A halted row adds the reason verbatim, then labelled figures: Halted at, and each breached limit with its detail. Pass \`limits\` for those.
 - The switch is on only while running. Turning it off pauses that strategy at once; turning it on asks first in a ConfirmSheet that names the strategy. The switch is a square hardware toggle: a \`pos\` knob on \`pos-soft\` when on. The knob pulses while the engine applies the command.
 - A row flashes its state colour once when its state changes. When the ranking changes, rows slide to their new places (480ms); reduced motion swaps them at once.
 - The tower is \`tower-w\` wide on desktop and full width below 1100px. On Overview it stays in view while the page scrolls, when the window is at least 720px tall.
-- From 640px wide, as on Strategies, each row reads on one line: position, ID, meta, gain, switch, under column headings in \`small\` \`muted\` with a \`control\` rule. Crossing 640px, the headings fade (240ms) before the rows close up under them, and each row's parts slide to their new places. A wide tower with a footer keeps the controls 360px wide and lays the SystemReadout beside them in three columns.
+- From 640px wide, as on Strategies, each row reads on one line: position, ID, meta, gain, switch, under column headings in \`small\` \`muted\` on a \`surface-2\` band. Crossing 640px, the headings fade (240ms) before the rows close up under them, and each row's parts slide to their new places. A wide tower with a footer keeps the controls 360px wide and lays the SystemReadout beside them in three columns.
 
 **Don't:**
 - Don't offer "Resume all". Resume is per strategy and never automatic.
@@ -412,7 +412,7 @@ Source: \`LimitMeter\` in \`src/web/components.tsx\`; limits from \`evaluateLimi
 
 **Use:**
 - Labels use \`label\`; figures use \`figure\`, condensed with tabular figures so columns line up.
-- Rows divide with a \`border\` rule; the first and last lose their outer padding.
+- Rows divide by space alone, never a rule; the first and last lose their outer padding.
 
 **Don't:**
 - Don't join related facts with middle dots. Give each its own row.
@@ -443,7 +443,7 @@ Source: \`Figures\` in \`src/web/components.tsx\`.`,
 **Provide:** the open positions and the account's cash.
 
 **Use:**
-- On Overview it opens the Account screen, above the figures, and closes with a row rule like them.
+- On Overview it opens the Account screen, above the figures.
 - One 8px strip. Each position is a segment lit in \`control\`, largest first, then cash unlit in \`border\`. Segments sit 2px apart and never shrink below 2px.
 - A key under the strip gives each symbol and cash its percent of the whole, in the same order. The strip is decoration; the key is the content.
 - A short counts at its absolute value, and margin debt counts as no cash.
@@ -471,12 +471,12 @@ Source: \`Allocation\` in \`src/web/components.tsx\`.`,
         />
       </div>
     ),
-    readme: `The figures a screen is about, in one ruled strip above its table.
+    readme: `The figures a screen is about, in one strip above its table.
 
 **Provide:** cells of a label and a figure already formatted as text, with an optional class for its colour. Add \`pw-amount\` to money, so privacy mode blurs it.
 
 **Use:**
-- Positions, Orders & fills and Strategies open with one: a single strip of equal cells ruled apart by hairlines, like the columns of a timing screen, not a row of separate cards. Each cell is a \`small\` \`muted\` label over a figure in \`board\`, flat, with no texture or glow. A count of zero reads \`muted\`.
+- Positions, Orders & fills and Strategies open with one: a single strip of equal cells on one face, with no rule between them, like the columns of a timing screen, not a row of separate cards. Each cell is a \`small\` \`muted\` label over a figure in \`board\`, flat, with no texture or glow. A count of zero reads \`muted\`.
 - The figure shrinks to fit its cell by its length, like the hero, so a long balance still fits two cells a row on a 320px phone.
 - Colour follows the figure: a gain or loss carries its sign and glyph in \`pos\` or \`neg\`; a count of paused strategies is \`warn\` and of halted ones or rejected orders \`neg\`, but only above zero.
 - Below 900px it shows two cells a row.
@@ -509,7 +509,7 @@ Source: \`Readout\` in \`src/web/components.tsx\`.`,
 - Headers in \`small\` and \`muted\` on a \`surface-2\` band; cells in \`figure\`; symbols in \`timing\`. Numbers align right.
 - A position's P&L % carries a 64px bar against the widest in the table, either side of a zero line, in the figure's colour.
 - Rows are \`row-h\` tall and alternate \`surface\` and \`surface-2\`.
-- Sides and statuses are status values in capitals. Rejected is \`neg\`, open is \`warn\`, done is \`muted\`. Rejected and open statuses sit in a chip: a border in their colour over its \`-soft\` tint.
+- Sides and statuses are status values in capitals. Rejected is \`neg\`, open is \`warn\`, done is \`muted\`. Rejected and open statuses sit in a chip tinted in their colour's \`-soft\`, with no outline.
 - Order times are ET. An order with no strategy reads "manual".
 - Orders & fills offers "Download CSV" beside its title: today's orders, newest first, UTC times, formulas defused. Built by \`ordersCsv\` in \`src/shared/orders.ts\`.
 - Quantities carry \`pw-amount\`, so privacy mode blurs them; prices stay.
@@ -586,7 +586,7 @@ Source: \`SignedMoney\` in \`src/web/components.tsx\`; formats in \`src/shared/f
 - Time is local 24-hour in \`small\` \`muted\`. Severity is a status value: INFO \`muted\`, WARN \`warn\`, ERROR and HALT \`neg\`.
 - The message uses \`body\` and wraps; the source sits under it in \`muted\`, or in its own right-hand column, only as wide as its text, when the log is at least 720px wide. A folded row says how often: "broker, 3 times since 16:47:05".
 - WARN, ERROR and HALT carry a 3px by 12px mark in their colour before the severity, the same mark as their flag on the trace. INFO keeps the space, so the words align.
-- The full log groups rows under a Screen per day.
+- Rows alternate \`surface\` and \`surface-2\`, with no rule between them. The full log groups rows under a Screen per day.
 - A new row drops in and its tint fades over 1.6s. A repeat folding into a row on screen tints it again without rebuilding or moving it: rows are keyed by the first event of their run.
 - Below 900px the time and severity sit above the message.
 
@@ -631,7 +631,7 @@ Source: \`EventRow\` and \`EventLog\` in \`src/web/components.tsx\`.`,
 **Use:**
 - \`surface\` on the \`bg\` asphalt with \`radius-sm\` corners. No shadow; depth is asphalt showing between screens.
 - The face is drawn on \`::before\`, like the tower's, the trace's and every slat's. When a resize moves a panel to another layout, \`glide\` in \`src/web/glide.ts\` slides it there from where it was drawn and grows or shrinks the face to its new size through \`--glide-r\` and \`--glide-b\`.
-- The head is 52px tall with the title in \`heading\` after a slanted 5px tab in \`fg\`, and a \`border\` rule under it.
+- The head is a 52px \`surface-3\` band, the cap. The title is \`heading\` in \`surface\` on a plate of \`fg\` leaning 20°, like a broadcast caption. No rule sits under the head, and no outline around the screen.
 - A Screen wipes in from the left behind a slanted edge when it arrives (460ms), and its rows slide in after it, 40ms apart. On Overview the screens follow the tower and the pit board in reading order. Reduced motion fades them in instead.
 - Screens are named for what they show: "Positions, 2 open", "Limits", "Account".
 - An empty Screen says what will fill it.
