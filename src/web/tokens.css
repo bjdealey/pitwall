@@ -1,9 +1,10 @@
 /* Generated from design/tokens.json by `npm run tokens`. Do not edit. */
 
 :root, [data-theme="dark"] {
-  --bg: #1a1c1f;
+  --bg: #17191c;
   --surface: #000000;
-  --surface-2: #0d0e10;
+  --surface-2: #121316;
+  --surface-3: #202327;
   --border: #2c2f34;
   --control: #6b7178;
   --fg: #f4f4f1;
@@ -28,6 +29,8 @@
   --paper: #2c2f34;
   --on-paper: #c9ccd0;
   --scrim: #000000b3;
+  --shadow-stack: 1px 1px 0 #34373d, 2px 2px 0 #2e3136, 3px 3px 0 #282b2f, 4px 4px 0 #222428, 5px 5px 0 #1c1e21, 6px 6px 0 #0f1012;
+  --shadow-plate: 1px 1px 0 #b0b2b6, 2px 2px 0 #9a9ca0, 3px 3px 0 #85878b, 4px 4px 0 #707276;
   --shadow-sheet: 0 16px 48px #000000cc;
   --focus-ring: 0 0 0 2px #000000, 0 0 0 4px #f4f4f1;
   color-scheme: dark;
@@ -37,6 +40,7 @@
   --bg: #e9e8e3;
   --surface: #ffffff;
   --surface-2: #f5f4f0;
+  --surface-3: #dcdad3;
   --border: #d4d1c9;
   --control: #767a80;
   --fg: #000000;
@@ -61,6 +65,8 @@
   --paper: #d4d1c9;
   --on-paper: #2b2d31;
   --scrim: #00000066;
+  --shadow-stack: 1px 1px 0 #d6d3cb, 2px 2px 0 #cdcac1, 3px 3px 0 #c4c0b7, 4px 4px 0 #bbb7ad, 5px 5px 0 #b2aea3, 6px 6px 0 #a29e93;
+  --shadow-plate: 1px 1px 0 #3d3c39, 2px 2px 0 #55534e, 3px 3px 0 #6d6a63, 4px 4px 0 #858178;
   --shadow-sheet: 0 16px 48px #0000002e;
   --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px #000000;
   color-scheme: light;
@@ -71,6 +77,7 @@
     --bg: #e9e8e3;
     --surface: #ffffff;
     --surface-2: #f5f4f0;
+    --surface-3: #dcdad3;
     --border: #d4d1c9;
     --control: #767a80;
     --fg: #000000;
@@ -95,6 +102,8 @@
     --paper: #d4d1c9;
     --on-paper: #2b2d31;
     --scrim: #00000066;
+    --shadow-stack: 1px 1px 0 #d6d3cb, 2px 2px 0 #cdcac1, 3px 3px 0 #c4c0b7, 4px 4px 0 #bbb7ad, 5px 5px 0 #b2aea3, 6px 6px 0 #a29e93;
+    --shadow-plate: 1px 1px 0 #3d3c39, 2px 2px 0 #55534e, 3px 3px 0 #6d6a63, 4px 4px 0 #858178;
     --shadow-sheet: 0 16px 48px #0000002e;
     --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px #000000;
     color-scheme: light;
@@ -128,6 +137,8 @@
 .pw-wordmark { font-family: var(--font-sans); font-size: 18px; line-height: 20px; font-weight: 800; font-stretch: 125%; letter-spacing: 0.04em; }
 
 .pw-title { font-family: var(--font-sans); font-size: 21px; line-height: 28px; font-weight: 700; font-stretch: 87.5%; }
+
+.pw-heading { font-family: var(--font-sans); font-size: 21px; line-height: 24px; font-weight: 800; font-stretch: 75%; }
 
 .pw-timing { font-family: var(--font-sans); font-size: 16px; line-height: 20px; font-weight: 600; font-stretch: 75%; }
 

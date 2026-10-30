@@ -5,8 +5,9 @@ import { Activity, ArrowLeftRight, Briefcase, Gauge, Layers, OctagonX } from 'lu
 import { StrictMode, useEffect, useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { HeartbeatAgeContext, MarketChip, ModeStrip, PasscodeInput, TrackBand, trackStatus } from './components.tsx';
+import { FullscreenButton, HeartbeatAgeContext, MarketChip, ModeStrip, PasscodeInput, PrivacyContext, TrackBand, trackStatus, usePrivacy } from './components.tsx';
 import { DEMO, freshness, postJson, useNow, usePost, useSnapshot } from './data.ts';
+import { glide } from './glide.ts';
 import { Events, Orders, Overview, PauseAllSheet, Positions, Strategies } from './screens.tsx';
 
 const ROUTES = [
@@ -38,6 +39,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const route = useRoute();
   const mainRef = useRef<HTMLElement>(null);
   const [pausing, setPausing] = useState(false);
+  const privacy = usePrivacy();
   const { stale, heartbeatAgeMs } = feed ? freshness(feed, now) : { stale: true, heartbeatAgeMs: Infinity };
   const status = trackStatus(feed ? { strategies: feed.snapshot.strategies, market: feed.snapshot.market, stale, heartbeatAgeMs } : null);
   useEffect(() => {
@@ -45,7 +47,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   }, [route.label]);
 
   return (
-    <div className="pw-app">
+    <div className={`pw-app ${privacy.hidden ? 'pw-private' : ''}`}>
       <button type="button" className="pw-skip pw-label" onClick={() => mainRef.current?.focus()}>
         Skip to content
       </button>
@@ -55,6 +57,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         <span className="pw-wordmark" translate="no">
           PITWALL
         </span>
+        <span className="pw-strip" aria-hidden />
         <nav className="pw-nav" aria-label="Screens">
           {ROUTES.map(({ hash, label }) => (
             <a key={hash} href={hash} className="pw-nav-item pw-timing" aria-current={hash === route.hash ? 'page' : undefined}>
@@ -64,6 +67,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
           ))}
         </nav>
         {feed && <MarketChip market={feed.snapshot.market} now={now} />}
+        <FullscreenButton />
         <button type="button" className="pw-btn pw-btn-stop pw-btn-compact" onClick={() => setPausing(true)}>
           <OctagonX className="pw-icon" aria-hidden />
           <span>Stop</span>
@@ -74,7 +78,9 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         <div className="pw-main">
           {feed ? (
             <HeartbeatAgeContext value={heartbeatAgeMs}>
-              <route.Screen snapshot={feed.snapshot} stale={stale} />
+              <PrivacyContext value={privacy}>
+                <route.Screen snapshot={feed.snapshot} stale={stale} />
+              </PrivacyContext>
             </HeartbeatAgeContext>
           ) : (
             <p className="pw-waiting pw-label pw-muted">Waiting for the first engine heartbeat…</p>
@@ -105,14 +111,18 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   return (
     <div className="pw-login">
       <ModeStrip mode={null} />
-      <form className="pw-login-board" onSubmit={submit}>
-        <h1 className="pw-wordmark" translate="no">
-          PITWALL
-        </h1>
-        <PasscodeInput value={passcode} onChange={setPasscode} error={error} attempt={attempt} help="Sign in to watch and stop the bot." />
-        <button type="submit" className="pw-btn pw-btn-primary" disabled={busy}>
-          {busy ? 'Checking…' : 'Sign in'}
-        </button>
+      <form className="pw-login-form" onSubmit={submit}>
+        <div className="pw-login-board pw-login-mark">
+          <h1 className="pw-wordmark" translate="no">
+            PITWALL
+          </h1>
+        </div>
+        <div className="pw-login-board">
+          <PasscodeInput value={passcode} onChange={setPasscode} error={error} attempt={attempt} help="Sign in to watch and stop the bot." />
+          <button type="submit" className="pw-btn pw-btn-primary" disabled={busy}>
+            {busy ? 'Checking…' : 'Sign in'}
+          </button>
+        </div>
       </form>
     </div>
   );
@@ -140,6 +150,7 @@ function App() {
 
 const root = document.getElementById('root');
 if (root) {
+  glide();
   createRoot(root).render(
     <StrictMode>
       <App />

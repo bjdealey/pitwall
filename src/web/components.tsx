@@ -1,9 +1,12 @@
-import { createContext, use, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { Eye, EyeOff, Maximize, Minimize } from 'lucide-react';
+import { createContext, use, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type PointerEvent, type ReactNode, type ToggleEvent } from 'react';
 import { createPortal } from 'react-dom';
-import type { Account, EventRecord, Health, Limit, MarketSession, Mode, Severity, Strategy, StrategyState } from '../shared/domain.ts';
-import { et } from '../shared/et.ts';
-import { changePercent, count, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
-import { DEMO, HEARTBEAT_STALE_MS, sendCommand, usePost } from './data.ts';
+import type { Account, DailyEquity, EventRecord, Health, Limit, MarketSession, Mode, Position, Severity, Strategy, StrategyState } from '../shared/domain.ts';
+import { atET, et } from '../shared/et.ts';
+import { calendarDate, changePercent, count, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
+import { DAILY_RANGES, rangeCloses, type RangeId } from '../shared/ranges.ts';
+import { DEMO, HEARTBEAT_STALE_MS, sendCommand, useDailyHistory, usePost } from './data.ts';
+import { frameAt, type Drawn, type Pt } from './morph.ts';
 
 export const toneClass: Record<Tone, string> = { up: 'pw-up', down: 'pw-down', flat: 'pw-flat' };
 
@@ -59,10 +62,24 @@ export function FlagIcon({ kind }: { kind: FlagKind }) {
 }
 
 export function TrackBand({ status }: { status: TrackStatus }) {
+  const bandRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLParagraphElement>(null);
+  const height = useRef(0);
+  // A new session state slides in like a ticker. The paragraph stays mounted, so its live region still announces.
+  // When the new text takes another line, the band eases to its new height, so the app below glides instead of jumping.
+  useLayoutEffect(() => {
+    const from = height.current;
+    const to = bandRef.current?.offsetHeight ?? 0;
+    height.current = to;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const ease = { duration: 360, easing: 'cubic-bezier(.16, 1, .3, 1)' };
+    textRef.current?.animate([{ opacity: 0, translate: '-12px 0' }, { opacity: 1, translate: '0 0' }], ease);
+    if (from && from !== to) bandRef.current?.animate([{ height: `${from}px`, overflow: 'hidden' }, { height: `${to}px`, overflow: 'hidden' }], ease);
+  }, [status.text]);
   return (
-    <div className={`pw-track pw-track-${status.kind}`}>
-      <FlagIcon kind={status.kind} />
-      <p className="pw-track-text pw-label">
+    <div ref={bandRef} className={`pw-track pw-track-${status.kind}`}>
+      <FlagIcon key={status.kind} kind={status.kind} />
+      <p ref={textRef} className="pw-track-text pw-label">
         <strong role="status">{status.text}</strong>
         {status.detail && <span className="pw-track-detail"> {status.detail}</span>}
       </p>
@@ -75,32 +92,76 @@ export function TrackBand({ status }: { status: TrackStatus }) {
   );
 }
 
-const MARKET: Record<MarketSession['state'], { label: string; next: string }> = {
-  open: { label: 'Open', next: 'closes' },
-  pre: { label: 'Pre-market', next: 'opens' },
-  after: { label: 'After-hours', next: 'ends' },
-  closed: { label: 'Closed', next: 'opens' },
+const MARKET: Record<MarketSession['state'], { name: string; label: string; next: string }> = {
+  open: { name: 'Market open', label: 'Open', next: 'closes' },
+  pre: { name: 'Pre-market', label: 'Pre-market', next: 'opens' },
+  after: { name: 'After-hours', label: 'After-hours', next: 'ends' },
+  closed: { name: 'Market closed', label: 'Closed', next: 'opens' },
 };
 
+/** The market's state and its next change. A narrow gantry folds the next change, then any label longer than Open, so the chip opens a popover with the whole line. */
 export function MarketChip({ market, now }: { market: MarketSession; now: number }) {
-  const { label, next } = MARKET[market.state];
+  const id = useId();
+  const chipRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // The popover is placed from the chip once, so a resize closes it rather than leave it behind.
+    const close = () => popRef.current?.matches(':popover-open') && popRef.current.hidePopover();
+    addEventListener('resize', close);
+    return () => removeEventListener('resize', close);
+  }, []);
+  const { name, label, next } = MARKET[market.state];
   const at = new Date(market.nextChangeAt);
   const day = et(at).date === et(new Date(now)).date ? '' : `${et(at).weekday} `;
+  const line = `${name}, ${next} ${day}${etTime(market.nextChangeAt)}`;
+  const place = (e: ToggleEvent<HTMLDivElement>) => {
+    const chip = chipRef.current?.getBoundingClientRect();
+    if (e.newState !== 'open' || !chip) return;
+    const pop = e.currentTarget.style;
+    pop.top = `${chip.bottom + 4}px`;
+    pop.right = `${innerWidth - chip.right}px`;
+    pop.maxWidth = `${chip.right - 16}px`;
+  };
   return (
-    <span className={`pw-market pw-market-${market.state} pw-small`}>
-      <span className="pw-light" aria-hidden />
-      <span className="pw-market-state">{label}</span>
-      <span className="pw-market-next">
-        {next} {day}
-        {etTime(market.nextChangeAt)}
-      </span>
-    </span>
+    <>
+      <button ref={chipRef} type="button" className={`pw-market pw-market-${market.state} pw-small`} popoverTarget={id} aria-label={line}>
+        <span className="pw-light" aria-hidden />
+        <span key={market.state} className="pw-market-state">
+          {label}
+        </span>
+        <span className="pw-market-next">
+          {next} {day}
+          {etTime(market.nextChangeAt)}
+        </span>
+      </button>
+      <div ref={popRef} id={id} popover="auto" className="pw-popover pw-small" onBeforeToggle={place}>
+        {line}.
+      </div>
+    </>
+  );
+}
+
+/** Full screen for a wall display, like a charting app's fullscreen mode. Shown only where the browser allows it and the gantry has room. */
+export function FullscreenButton() {
+  const [full, setFull] = useState(() => document.fullscreenElement !== null);
+  useEffect(() => {
+    const sync = () => setFull(document.fullscreenElement !== null);
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+  if (!document.fullscreenEnabled) return null;
+  const Icon = full ? Minimize : Maximize;
+  return (
+    <button type="button" className="pw-btn pw-btn-compact pw-fullscreen" onClick={() => (full ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => {})}>
+      <Icon className="pw-icon" aria-hidden />
+      <span>{full ? 'Exit full screen' : 'Full screen'}</span>
+    </button>
   );
 }
 
 export function SignedMoney({ value, className = 'pw-figure' }: { value: number; className?: string }) {
   const t = tone(value);
-  return <span className={`pw-delta ${className} ${toneClass[t]}`}>{`${signedMoney(value)} ${glyph(t)}`.trim()}</span>;
+  return <span className={`pw-delta pw-amount ${className} ${toneClass[t]}`}>{`${signedMoney(value)} ${glyph(t)}`.trim()}</span>;
 }
 
 export function Screen({ title, aside, flush = false, className = '', id, children }: { title: string; aside?: ReactNode; flush?: boolean; className?: string; id?: string; children: ReactNode }) {
@@ -108,7 +169,7 @@ export function Screen({ title, aside, flush = false, className = '', id, childr
   return (
     <section id={id} className={`pw-screen ${className}`} aria-labelledby={titleId}>
       <header className="pw-screen-head">
-        <h2 id={titleId} className="pw-label pw-screen-title">
+        <h2 id={titleId} className="pw-heading pw-screen-title">
           {title}
         </h2>
         {aside}
@@ -117,6 +178,29 @@ export function Screen({ title, aside, flush = false, className = '', id, childr
     </section>
   );
 }
+
+export type Reading = { label: string; value: string; className?: string };
+
+/** The figures a screen is about, on pit-board slats above its table. Each figure shrinks to fit its slat, like the hero. */
+export function Readout({ cells }: { cells: Reading[] }) {
+  return (
+    <dl className="pw-readout">
+      {cells.map((c, i) => (
+        <div key={c.label} className="pw-slat">
+          <dt className="pw-small pw-slat-label pw-slat-head">
+            {c.label}
+            {i === 0 && <PrivacyToggle />}
+          </dt>
+          <dd className={`pw-board pw-stat-value ${c.value === '0' ? 'pw-muted' : (c.className ?? '')}`} style={{ '--chars': c.value.length } as CSSProperties}>
+            {c.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+export const signedFigure = (value: number) => `${signedMoney(value)} ${glyph(tone(value))}`.trim();
 
 export type Figure = { label: ReactNode; value: ReactNode };
 
@@ -133,26 +217,105 @@ export function Figures({ rows }: { rows: Figure[] }) {
   );
 }
 
+/** How the account splits between each open position and cash, by market value, largest position first. */
+export function Allocation({ positions, cash }: { positions: Position[]; cash: number }) {
+  // shortcut: a short counts at its absolute value and margin debt as no cash; split long and short if the bots start shorting.
+  const parts = [...positions.map((p) => ({ label: p.symbol, value: Math.abs(p.qty * p.lastPrice) })).sort((a, b) => b.value - a.value), { label: 'Cash', value: Math.max(0, cash) }];
+  const total = parts.reduce((sum, p) => sum + p.value, 0);
+  if (total <= 0) return null;
+  return (
+    <div className="pw-alloc">
+      <div className="pw-alloc-bar" aria-hidden>
+        {parts.map((p, i) => p.value > 0 && <span key={p.label} className={i === parts.length - 1 ? 'pw-alloc-cash' : ''} style={{ flexGrow: p.value }} />)}
+      </div>
+      <ul className="pw-alloc-key pw-small" aria-label="Allocation by market value">
+        {parts.map((p, i) => (
+          <li key={p.label}>
+            <span className="pw-muted" translate={i === parts.length - 1 ? undefined : 'no'}>
+              {p.label}
+            </span>
+            <span className="pw-figure">{pct((p.value / total) * 100)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const PRIVACY_KEY = 'pitwall.privacy';
+
+export type Privacy = { hidden: boolean; toggle: () => void };
+export const PrivacyContext = createContext<Privacy>({ hidden: false, toggle: () => {} });
+
+/** Privacy mode for the shell: remembered on this device, so a wall screen or phone stays hidden after a reload. */
+export function usePrivacy(): Privacy {
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem(PRIVACY_KEY) === 'hidden';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(PRIVACY_KEY, hidden ? 'hidden' : 'shown');
+    } catch {
+      // Private windows can refuse storage; the mode still works until reload.
+    }
+  }, [hidden]);
+  return { hidden, toggle: () => setHidden((h) => !h) };
+}
+
+/** The eye on the equity slat and on each readout. It blurs money and quantities for anyone looking over your shoulder; prices and percentages stay. */
+export function PrivacyToggle() {
+  const { hidden, toggle } = use(PrivacyContext);
+  const Icon = hidden ? EyeOff : Eye;
+  return (
+    <button type="button" className="pw-privacy" aria-pressed={hidden} aria-label="Hide amounts" title={hidden ? 'Show amounts' : 'Hide amounts'} onClick={toggle}>
+      <Icon className="pw-icon" aria-hidden />
+    </button>
+  );
+}
+
 const TRACE_W = 1000;
 const TRACE_H = 200;
 
-/** The pit board: equity, today's change and the session's reference points on stacked slats, beside the day's trace. */
-export function PitBoard({ account, points, stale }: { account: Account; points: { at: string; equity: number }[]; stale: boolean }) {
+const RANGE_PRESETS = [{ id: 'today', label: 'Today' }, ...DAILY_RANGES] as const;
+
+/** The pit board: equity, today's change and the session's reference points on stacked slats, beside the trace and its range presets. */
+export function PitBoard({ account, points, events, stale }: { account: Account; points: Sample[]; events: EventRecord[]; stale: boolean }) {
   const change = account.equity - account.lastEquity;
   const changePct = account.lastEquity ? (change / account.lastEquity) * 100 : 0;
   const t = tone(change);
-  const high = points.reduce<{ at: string; equity: number } | null>((best, p) => (!best || p.equity > best.equity ? p : best), null);
+  const high = points.reduce<Sample | null>((best, p) => (!best || p.equity > best.equity ? p : best), null);
+  const [range, setRange] = useState<RangeId>('today');
+  const [asked, setAsked] = useState(0);
+  const today = et(new Date()).date;
+  const daily = DAILY_RANGES.find((r) => r.id === range);
+  // Loaded with the board, not on the first pick, so a range opens on its line instead of a loading message.
+  const history = useDailyHistory(today, asked);
+  const model = !daily ? sessionModel(points, account.lastEquity, events) : history.kind === 'ready' ? rangeModel(rangeCloses(history.days, daily.start(today), today, account.equity)) : null;
+  const empty = !daily
+    ? 'The trace fills in as the engine records equity through the day.'
+    : history.kind === 'loading'
+      ? 'Loading daily closes…'
+      : history.kind === 'failed'
+        ? 'Daily closes did not load. Pick the range again to retry.'
+        : 'Daily closes build up as the engine runs, one a day.';
   return (
     <section className="pw-board-wrap" aria-label="Equity">
       <div className="pw-slats">
         <div className="pw-slat pw-slat-hero">
-          <span className="pw-small pw-slat-label">Equity</span>
-          <span className="pw-hero pw-stat-value" style={{ '--chars': money(account.equity).length } as CSSProperties}>
+          <span className="pw-small pw-slat-label pw-slat-head">
+            Equity
+            <PrivacyToggle />
+          </span>
+          <span className="pw-hero pw-stat-value pw-amount" style={{ '--chars': money(account.equity).length } as CSSProperties}>
             {money(account.equity)}
           </span>
         </div>
         <div className="pw-slat pw-slat-change">
-          <span className={`pw-board pw-delta ${toneClass[t]}`}>{t === 'flat' ? money(0) : signedMoney(change)}</span>
+          <span className={`pw-board pw-delta pw-amount ${toneClass[t]}`}>{t === 'flat' ? money(0) : signedMoney(change)}</span>
           <span className={`pw-label pw-delta ${toneClass[t]}`}>
             {t === 'flat' ? pct(0) : `${changePercent(changePct)} ${glyph(t)}`} today
           </span>
@@ -160,65 +323,346 @@ export function PitBoard({ account, points, stale }: { account: Account; points:
         <div className="pw-slat pw-slat-pair">
           <div>
             <span className="pw-small pw-slat-label">Previous close</span>
-            <span className="pw-figure">{money(account.lastEquity)}</span>
+            <span className="pw-figure pw-amount">{money(account.lastEquity)}</span>
           </div>
           <div>
             <span className="pw-small pw-slat-label">Day high</span>
-            <span className={`pw-figure ${high && high.equity > account.lastEquity ? 'pw-best' : ''}`}>{high ? money(high.equity) : 'No samples yet'}</span>
+            <span className={`pw-figure ${high ? 'pw-amount' : ''} ${high && high.equity > account.lastEquity ? 'pw-best' : ''}`}>{high ? money(high.equity) : 'No samples yet'}</span>
           </div>
         </div>
       </div>
-      <EquityTrace points={points} baseline={account.lastEquity} high={high} stale={stale} />
+      <EquityTrace model={model} empty={empty} stale={stale}>
+        <div className="pw-trace-ranges" role="group" aria-label="Trace range">
+          {RANGE_PRESETS.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              className="pw-trace-range pw-small"
+              aria-pressed={range === r.id}
+              onClick={() => {
+                setRange(r.id);
+                setAsked((n) => n + 1);
+              }}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </EquityTrace>
     </section>
   );
 }
 
-function EquityTrace({ points, baseline, high, stale }: { points: { at: string; equity: number }[]; baseline: number; high: { at: string; equity: number } | null; stale: boolean }) {
+type Sample = { at: string; equity: number };
+
+/** What the trace draws: samples against a baseline across t0 to t1, its gridlines, how to read a time, the words after a change, and any flags. */
+type TraceModel = { points: Sample[]; baseline: number; baselineLabel: string; t0: number; t1: number; grid: number[]; when: (iso: string) => string; since: string; flags: EventRecord[]; tags: boolean };
+
+const FLAG_RANK: Partial<Record<Severity, number>> = { warn: 1, error: 2, halt: 3 };
+
+/** Today: the session against the previous close, ET times, hour lines, flags and the tide-chart high and low. */
+function sessionModel(points: Sample[], baseline: number, events: EventRecord[]): TraceModel | null {
   const first = points[0];
-  const last = points[points.length - 1];
-  if (!first || !last || points.length < 2) {
+  const last = points.at(-1);
+  if (!first || !last || points.length < 2) return null;
+  // The axis spans the regular session, so the trace grows across the day and the empty part is the time left.
+  // shortcut: early-close days still run to 16:00, Alpaca's /v2/calendar is the upgrade.
+  const day = new Date(first.at);
+  const t0 = Math.min(Date.parse(first.at), Date.parse(atET(day, '09:30')));
+  const t1 = Math.max(Date.parse(last.at), Date.parse(atET(day, '16:00')));
+  const flags = events.filter((e) => FLAG_RANK[e.severity] && Date.parse(e.at) >= t0 && Date.parse(e.at) <= t1).sort((a, b) => (FLAG_RANK[a.severity] ?? 0) - (FLAG_RANK[b.severity] ?? 0));
+  const grid = [10, 11, 12, 13, 14, 15].map((h) => Date.parse(atET(day, `${h}:00`)));
+  return { points, baseline, baselineLabel: 'Previous close', t0, t1, grid, when: etTime, since: 'today', flags, tags: true };
+}
+
+/** A longer range: daily closes against the first close in it, dated, with a line at each month start, or each year start past about 13 months. */
+function rangeModel(closes: DailyEquity[]): TraceModel | null {
+  const points = closes.map((d) => ({ at: `${d.date}T00:00:00.000Z`, equity: d.equity }));
+  const first = points[0];
+  const last = points.at(-1);
+  if (!first || !last || points.length < 2) return null;
+  const t0 = Date.parse(first.at);
+  const t1 = Date.parse(last.at);
+  const years = t1 - t0 > 400 * 86_400_000;
+  const step = years ? 12 : 1;
+  const grid: number[] = [];
+  const mark = new Date(t0);
+  mark.setUTCDate(1);
+  if (years) mark.setUTCMonth(0);
+  for (mark.setUTCMonth(mark.getUTCMonth() + step); mark.getTime() < t1; mark.setUTCMonth(mark.getUTCMonth() + step)) grid.push(mark.getTime());
+  // Dates carry the year once the range crosses one, so a 1Y axis does not read Oct 29 to Oct 29.
+  const when = (iso: string) => calendarDate(iso, first.at.slice(0, 4) !== last.at.slice(0, 4));
+  return { points, baseline: first.equity, baselineLabel: 'First close', t0, t1, grid, when, since: `since ${when(first.at)}`, flags: [], tags: false };
+}
+
+const toPoints = (line: Pt[]) => line.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(' ');
+const dotAt = ([px, py]: Pt) => ({ left: `${(px / TRACE_W) * 100}%`, top: `${(py / TRACE_H) * 100}%` });
+
+/** The line in plot units over its window, t0 to t1, and the baseline's height. A new window is a new range to morph to. */
+type Stroke = Drawn & { base: number };
+
+const MORPH_MS = 600;
+
+/** The trace's line, baseline and latest dot. A new range morphs them from the old window to the new one, so the trace moves like a camera instead of redrawing. */
+function TraceStroke({ t0, t1, line, base }: Stroke) {
+  const lineRef = useRef<SVGPolylineElement>(null);
+  const baseRef = useRef<SVGLineElement>(null);
+  const nowRef = useRef<HTMLSpanElement>(null);
+  // What is on screen, which mid-morph is neither range's shape, and what the morph is heading for.
+  const shown = useRef<Stroke | null>(null);
+  const target = useRef<Stroke>({ t0, t1, line, base });
+  const frame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+  useLayoutEffect(() => {
+    const paint = (s: Stroke) => {
+      shown.current = s;
+      lineRef.current?.setAttribute('points', toPoints(s.line));
+      baseRef.current?.setAttribute('y1', String(s.base));
+      baseRef.current?.setAttribute('y2', String(s.base));
+      const end = s.line.at(-1);
+      if (end && nowRef.current) Object.assign(nowRef.current.style, dotAt(end));
+    };
+    const aimed = target.current;
+    target.current = { t0, t1, line, base };
+    const from = shown.current;
+    if (!from || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      shown.current = target.current;
+      return;
+    }
+    if (aimed.t0 === t0 && aimed.t1 === t1) {
+      // A tick during a morph re-renders the final shape; repaint the morph's frame before the browser shows it.
+      if (frame.current) paint(from);
+      else shown.current = target.current;
+      return;
+    }
+    cancelAnimationFrame(frame.current);
+    const start = performance.now();
+    const step = (now: number) => {
+      // A frame's timestamp can precede start, which would run the morph backwards past its first shape.
+      const t = Math.min(1, Math.max(0, (now - start) / MORPH_MS));
+      const e = 1 - (1 - t) ** 3;
+      const to = target.current;
+      if (t === 1) {
+        frame.current = 0;
+        paint(to);
+        return;
+      }
+      paint({ ...frameAt(from, to, e, TRACE_W), base: from.base + (to.base - from.base) * e });
+      frame.current = requestAnimationFrame(step);
+    };
+    step(start);
+  });
+  const end = line.at(-1);
+  return (
+    <>
+      <svg className="pw-trace-stroke" viewBox={`0 0 ${TRACE_W} ${TRACE_H}`} preserveAspectRatio="none" aria-hidden>
+        <line ref={baseRef} className="pw-trace-base" x1={0} x2={TRACE_W} y1={base} y2={base} />
+        <polyline ref={lineRef} className="pw-trace-line" points={toPoints(line)} />
+      </svg>
+      {end && <span ref={nowRef} className="pw-trace-now" style={dotAt(end)} />}
+    </>
+  );
+}
+
+type Window = { t0: number; t1: number };
+
+/** Where a moment sits across a window, in percent, held to the plot's edges. */
+const leftIn = (at: number, w: Window) => Math.min(100, Math.max(0, ((at - w.t0) / (w.t1 - w.t0 || 1)) * 100));
+
+/**
+ * The trace's vertical lines, at each hour, month or year start. On a new range they move with the line's morph:
+ * a line both ranges share slides to its new place, a new one fades in as it slides from where its moment sat in the
+ * old window, and an old one fades out as it slides to where its moment lands in the new one.
+ */
+function TraceGrid({ lines, t0, t1 }: { lines: number[] } & Window) {
+  const sig = `${t0}:${t1}:${lines.join()}`;
+  const [last, setLast] = useState({ sig, lines, t0, t1 });
+  const [from, setFrom] = useState(new Map<number, number>());
+  const [gone, setGone] = useState<{ at: number; from: number; to: number }[]>([]);
+  if (last.sig !== sig) {
+    const kept = new Set(lines);
+    const was = new Set(last.lines);
+    // Each line keeps the place it entered from, so a tick never moves the start of a slide already running.
+    setFrom(new Map([...[...from].filter(([at]) => kept.has(at)), ...lines.filter((at) => !was.has(at)).map((at): [number, number] => [at, leftIn(at, last)])]));
+    setGone([...gone.filter((g) => !kept.has(g.at)), ...last.lines.filter((at) => !kept.has(at) && !gone.some((g) => g.at === at)).map((at) => ({ at, from: leftIn(at, last), to: leftIn(at, { t0, t1 }) }))]);
+    setLast({ sig, lines, t0, t1 });
+  }
+  return (
+    <>
+      {gone.map((g) => (
+        <span
+          key={`out-${g.at}`}
+          className="pw-trace-vline pw-trace-vline-out"
+          style={{ left: `${g.to}%`, '--from': `${g.from}%` } as CSSProperties}
+          onAnimationEnd={() => setGone((all) => all.filter((o) => o.at !== g.at))}
+        />
+      ))}
+      {lines.map((at) => {
+        const left = leftIn(at, { t0, t1 });
+        return <span key={at} className="pw-trace-vline" style={{ left: `${left}%`, '--from': `${from.get(at) ?? left}%` } as CSSProperties} />;
+      })}
+    </>
+  );
+}
+
+function EquityTrace({ model, empty, stale, children }: { model: TraceModel | null; empty: string; stale: boolean; children: ReactNode }) {
+  const [cursor, setCursor] = useState<number | null>(null);
+  const readoutRef = useRef<HTMLSpanElement>(null);
+  // The readout centres on the cursor but stops at the plot's edges. Reset first so the width is the content's.
+  useLayoutEffect(() => {
+    const tag = readoutRef.current;
+    const plot = tag?.parentElement;
+    if (!tag || !plot) return;
+    tag.style.left = '0px';
+    const cx = (Number(tag.dataset.x) / 100) * plot.clientWidth;
+    tag.style.left = `${Math.max(0, Math.min(cx - tag.offsetWidth / 2, plot.clientWidth - tag.offsetWidth))}px`;
+  });
+  const first = model?.points[0];
+  const last = model?.points.at(-1);
+  if (!model || !first || !last) {
     return (
       <figure className="pw-trace pw-trace-empty">
-        <p className="pw-label">The trace fills in as the engine records equity through the day.</p>
+        <p className="pw-label">{empty}</p>
+        {children}
       </figure>
     );
   }
-  const t0 = Date.parse(first.at);
-  const span = Date.parse(last.at) - t0 || 1;
+  const { points, baseline, t0, t1, when, since, flags } = model;
+  const span = t1 - t0 || 1;
+  const x = (at: string) => ((Date.parse(at) - t0) / span) * TRACE_W;
   const values = points.map((p) => p.equity);
   const lo = Math.min(...values, baseline);
   const hi = Math.max(...values, baseline);
-  const pad = (hi - lo) * 0.2 || Math.max(1, Math.abs(baseline) * 0.001);
-  const x = (at: string) => ((Date.parse(at) - t0) / span) * TRACE_W;
+  // Headroom above and below for the high and low labels.
+  const pad = (hi - lo) * 0.4 || Math.max(1, Math.abs(baseline) * 0.001);
   const y = (v: number) => TRACE_H - ((v - (lo - pad)) / (hi - lo + 2 * pad)) * TRACE_H;
-  const line = points.map((p) => `${x(p.at).toFixed(1)},${y(p.equity).toFixed(1)}`).join(' ');
-  const baseY = y(baseline);
+  const line = points.map((p): Pt => [x(p.at), y(p.equity)]);
   const moved = Math.max(...values) > Math.min(...values);
+  const high = points.reduce((best, p) => (p.equity > best.equity ? p : best), first);
+  const low = points.reduce((worst, p) => (p.equity < worst.equity ? p : worst), first);
+  const showHigh = model.tags && moved && !stale && high.equity > baseline;
+  const showLow = model.tags && moved && !stale && low.equity < baseline;
+  const at = (p: Sample) => ({ left: `${(x(p.at) / TRACE_W) * 100}%`, top: `${(y(p.equity) / TRACE_H) * 100}%` });
+  // Near either end a label hangs inward from its dot, so it stays inside the plot.
+  const edge = (p: Sample) => (x(p.at) < TRACE_W * 0.12 ? 'pw-trace-tag-start' : x(p.at) > TRACE_W * 0.88 ? 'pw-trace-tag-end' : '');
+  // The cursor snaps to the nearest sample, and each flag belongs to the sample nearest it.
+  const times = points.map((p) => Date.parse(p.at));
+  const nearest = (t: number) => times.reduce((best, ti, i) => (Math.abs(ti - t) < Math.abs((times[best] ?? ti) - t) ? i : best), 0);
+  const lastIndex = points.length - 1;
+  const index = cursor === null ? null : Math.min(cursor, lastIndex);
+  const shown = points[index ?? lastIndex] ?? last;
+  const here = flags.filter((e) => nearest(Date.parse(e.at)) === (index ?? lastIndex));
+  // Flags closer than 1.5% of the plot's width merge into the worst of them, so even on a phone none stacks on another.
+  const marks: EventRecord[] = [];
+  for (const e of flags.toSorted((a, b) => Date.parse(a.at) - Date.parse(b.at))) {
+    const prev = marks.at(-1);
+    if (!prev || x(e.at) - x(prev.at) >= TRACE_W * 0.015) marks.push(e);
+    else if ((FLAG_RANK[e.severity] ?? 0) > (FLAG_RANK[prev.severity] ?? 0)) marks[marks.length - 1] = e;
+  }
+  const worst = here.reduce<EventRecord | null>((w, e) => (!w || (FLAG_RANK[e.severity] ?? 0) > (FLAG_RANK[w.severity] ?? 0) ? e : w), null);
+  const change = shown.equity - baseline;
+  const scrub = (e: PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setCursor(nearest(t0 + ((e.clientX - r.left) / r.width) * span));
+  };
+  const step = (e: KeyboardEvent<HTMLDivElement>) => {
+    const from = index ?? lastIndex;
+    const to = ({ ArrowLeft: from - 1, ArrowRight: from + 1, Home: 0, End: lastIndex } as Record<string, number>)[e.key];
+    if (e.key === 'Escape') setCursor(null);
+    else if (to === undefined) return;
+    else setCursor(Math.max(0, Math.min(to, lastIndex)));
+    e.preventDefault();
+  };
   return (
-    <figure className={`pw-trace ${toneClass[stale ? 'flat' : tone(last.equity - baseline)]}`} aria-hidden>
-      <div className="pw-trace-plot">
-        <svg viewBox={`0 0 ${TRACE_W} ${TRACE_H}`} preserveAspectRatio="none" aria-hidden>
-          {moved && <polygon className="pw-trace-area" points={`0,${baseY} ${line} ${TRACE_W},${baseY}`} />}
-          <line className="pw-trace-base" x1={0} x2={TRACE_W} y1={baseY} y2={baseY} />
-          <polyline className="pw-trace-line" points={line} />
-        </svg>
-        {moved && high && high.equity > baseline && !stale && (
-          <span className="pw-trace-high" style={{ left: `${(x(high.at) / TRACE_W) * 100}%`, top: `${(y(high.equity) / TRACE_H) * 100}%` }} title={`Day high ${money(high.equity)}`} />
-        )}
-      </div>
-      <figcaption className="pw-trace-axis pw-small">
-        <span>{etTime(first.at)}</span>
-        <span className="pw-trace-legend">
-          <span className="pw-trace-swatch" aria-hidden /> Previous close
-        </span>
-        <span>{etTime(last.at)}</span>
-      </figcaption>
+    <figure className={`pw-trace ${toneClass[stale ? 'flat' : tone(last.equity - baseline)]}`}>
+      {/* One slot before children, as in the empty figure, so the range bar keeps its buttons and focus when a range loads. */}
+      <>
+        <div
+          className={`pw-trace-plot ${index === null ? '' : 'pw-trace-scrubbing'}`}
+          role="slider"
+          tabIndex={0}
+          aria-label={`Equity ${since === 'today' ? 'through the day' : since}`}
+          aria-valuemin={0}
+          aria-valuemax={lastIndex}
+          aria-valuenow={index ?? lastIndex}
+          aria-valuetext={`${when(shown.at)}, ${money(shown.equity)}, ${signedMoney(change)} ${since}${worst ? `, ${SEVERITY_WORD[worst.severity]}: ${worst.message}` : ''}`}
+          onPointerDown={scrub}
+          onPointerMove={scrub}
+          onPointerLeave={(e) => {
+            if (e.pointerType === 'mouse') setCursor(null);
+          }}
+          onKeyDown={step}
+          onFocus={() => setCursor((c) => c ?? lastIndex)}
+          onBlur={() => setCursor(null)}
+        >
+          <TraceGrid lines={model.grid} t0={t0} t1={t1} />
+          <svg viewBox={`0 0 ${TRACE_W} ${TRACE_H}`} preserveAspectRatio="none" aria-hidden>
+            {[0.25, 0.5, 0.75].map((f) => (
+              <line key={f} className="pw-trace-grid" x1={0} x2={TRACE_W} y1={TRACE_H * f} y2={TRACE_H * f} />
+            ))}
+            {index !== null && <line className="pw-trace-cursor" x1={x(shown.at)} x2={x(shown.at)} y1={0} y2={TRACE_H} />}
+          </svg>
+          <TraceStroke t0={t0} t1={t1} line={line} base={y(baseline)} />
+          {index !== null && (
+            <>
+              <span className="pw-trace-cursor-dot" style={at(shown)} />
+              <span className="pw-trace-readout" ref={readoutRef} data-x={(x(shown.at) / TRACE_W) * 100}>
+                <span className="pw-trace-readout-row">
+                  <span className="pw-small">{when(shown.at)}</span>
+                  <span className="pw-figure pw-amount">{money(shown.equity)}</span>
+                  <span className={`pw-figure pw-amount ${toneClass[tone(change)]}`}>{signedFigure(change)}</span>
+                </span>
+                {worst && (
+                  <span className="pw-trace-readout-event pw-small">
+                    <span className={`pw-event-sev pw-event-${worst.severity} pw-sev-${worst.severity}`}>{SEVERITY_WORD[worst.severity]}</span>
+                    <span className="pw-trace-readout-msg">{worst.message}</span>
+                    {here.length > 1 && <span className="pw-muted">and {here.length - 1} more</span>}
+                  </span>
+                )}
+              </span>
+            </>
+          )}
+          {showLow && (
+            <>
+              <span className="pw-trace-low" style={at(low)} />
+              <span className={`pw-trace-tag pw-trace-tag-below ${edge(low)}`} style={at(low)}>
+                <span className="pw-figure pw-amount">{money(low.equity)}</span>
+                <span className="pw-small">{when(low.at)}</span>
+              </span>
+            </>
+          )}
+          {showHigh && (
+            <>
+              <span className="pw-trace-high" style={at(high)} />
+              <span className={`pw-trace-tag pw-trace-tag-above ${edge(high)}`} style={at(high)}>
+                <span className="pw-figure pw-best pw-amount">{money(high.equity)}</span>
+                <span className="pw-small">{when(high.at)}</span>
+              </span>
+            </>
+          )}
+          {marks.map((e) => (
+            <span key={e.id} className={`pw-trace-flag pw-event-${e.severity}`} style={{ left: `${(x(e.at) / TRACE_W) * 100}%` }} />
+          ))}
+        </div>
+        <figcaption className="pw-trace-axis pw-small" aria-hidden>
+          <span>{when(new Date(t0).toISOString())}</span>
+          <span className="pw-trace-legend">
+            <span className="pw-trace-swatch" aria-hidden /> {model.baselineLabel}
+          </span>
+          <span>{when(new Date(t1).toISOString())}</span>
+        </figcaption>
+      </>
+      {children}
     </figure>
   );
 }
 
+const SEGMENTS = 20;
+
 export function LimitMeter({ limit }: { limit: Limit }) {
   const ratio = limit.max > 0 ? Math.min(1, limit.used / limit.max) : 0;
+  // Any use lights a segment, so a limit that has started to fill never reads as empty.
+  const lit = Math.ceil(ratio * SEGMENTS) / SEGMENTS;
   const level = limit.breached ? 'pw-meter-crit' : ratio >= 0.75 ? 'pw-meter-warn' : '';
   return (
     <div className={`pw-meter ${level}`}>
@@ -227,9 +671,9 @@ export function LimitMeter({ limit }: { limit: Limit }) {
         <span className="pw-meter-pct pw-figure">{pct(ratio * 100)}</span>
       </div>
       <div className="pw-meter-track" role="meter" aria-label={limit.label} aria-valuemin={0} aria-valuemax={limit.max} aria-valuenow={limit.used} aria-valuetext={limit.detail}>
-        <div className="pw-meter-fill" style={{ transform: `scaleX(${ratio})` }} />
+        <div className="pw-meter-fill" style={{ transform: `scaleX(${lit})` }} />
       </div>
-      <div className="pw-meter-sub pw-small">{limit.detail}</div>
+      <div className={`pw-meter-sub pw-small ${limit.id === 'daily-loss' ? 'pw-amount' : ''}`}>{limit.detail}</div>
     </div>
   );
 }
@@ -254,7 +698,8 @@ export function SystemReadout({ health, heartbeatAt }: { health: Health; heartbe
   const cpu = health.cpuTempC;
   const disk = health.diskUsedPct;
   const warnLight = (on: boolean, level: 'warn' | 'neg' = 'warn') => (on ? <span className={`pw-light pw-light-${level}`} /> : null);
-  const cells: { label: ReactNode; value: string }[] = [
+  const cpuWarn = Boolean(health.throttled) || (cpu !== null && cpu >= 75);
+  const cells: { label: ReactNode; value: string; meter?: { ratio: number; level: string } }[] = [
     {
       label: (
         <>
@@ -272,15 +717,35 @@ export function SystemReadout({ health, heartbeatAt }: { health: Health; heartbe
       value: health.brokerConnected ? 'connected' : 'down',
     },
   ];
-  if (cpu !== null) cells.push({ label: <>{warnLight(Boolean(health.throttled) || cpu >= 75)} CPU</>, value: `${cpu.toFixed(0)}°C${health.throttled ? ' throttled' : ''}` });
-  if (disk !== null) cells.push({ label: <>{warnLight(disk >= 80, disk >= 95 ? 'neg' : 'warn')} Disk</>, value: pct(disk) });
-  cells.push({ label: 'Memory', value: `${(health.memUsedBytes / GB).toFixed(1)} of ${(health.memTotalBytes / GB).toFixed(0)}\u00a0GB` }, { label: 'Uptime', value: duration(health.uptimeS) });
+  // The CPU meter fills toward 85°C, where a Pi 5 throttles.
+  if (cpu !== null) cells.push({ label: <>{warnLight(cpuWarn)} CPU</>, value: `${cpu.toFixed(0)}°C${health.throttled ? ' throttled' : ''}`, meter: { ratio: cpu / 85, level: cpuWarn ? 'pw-meter-warn' : '' } });
+  if (disk !== null)
+    cells.push({
+      label: <>{warnLight(disk >= 80, disk >= 95 ? 'neg' : 'warn')} Disk</>,
+      value: pct(disk),
+      meter: { ratio: disk / 100, level: disk >= 95 ? 'pw-meter-crit' : disk >= 80 ? 'pw-meter-warn' : '' },
+    });
+  cells.push(
+    {
+      label: 'Memory',
+      value: `${(health.memUsedBytes / GB).toFixed(1)} of ${(health.memTotalBytes / GB).toFixed(0)}\u00a0GB`,
+      meter: { ratio: health.memTotalBytes ? health.memUsedBytes / health.memTotalBytes : 0, level: '' },
+    },
+    { label: 'Uptime', value: duration(health.uptimeS) },
+  );
   return (
     <dl className="pw-system" aria-label="System">
       {cells.map((c, i) => (
         <div key={i}>
           <dt className="pw-small">{c.label}</dt>
-          <dd className="pw-figure">{c.value}</dd>
+          <dd className="pw-figure">
+            {c.value}
+            {c.meter && (
+              <span className={`pw-meter-track ${c.meter.level}`} aria-hidden>
+                <span className="pw-meter-fill" style={{ transform: `scaleX(${Math.ceil(Math.min(1, c.meter.ratio) * 10) / 10})` }} />
+              </span>
+            )}
+          </dd>
         </div>
       ))}
     </dl>
@@ -289,7 +754,7 @@ export function SystemReadout({ health, heartbeatAt }: { health: Health; heartbe
 
 const STATE_WORD: Record<StrategyState['kind'], string> = { running: 'RUNNING', paused: 'PAUSED', halted: 'HALTED' };
 
-function TowerRow({ position, strategy, best, busy, onToggle }: { position: number; strategy: Strategy; best: boolean; busy: boolean; onToggle: () => void }) {
+function TowerRow({ position, strategy, best, busy, breached, onToggle }: { position: number; strategy: Strategy; best: boolean; busy: boolean; breached: Limit[]; onToggle: () => void }) {
   const { id, symbol, state, todayPl, fillsToday } = strategy;
   // Flash and pop only after a change seen on screen, not on first paint.
   const [shownKind, setShownKind] = useState(state.kind);
@@ -299,9 +764,9 @@ function TowerRow({ position, strategy, best, busy, onToggle }: { position: numb
     setChanged(true);
   }
   return (
-    <li className={`pw-tower-row pw-state-${state.kind}`}>
+    <li className={`pw-tower-row pw-state-${state.kind}`} data-id={id}>
       {changed && <span key={state.kind} className={`pw-row-flash pw-row-flash-${state.kind}`} aria-hidden />}
-      <span className="pw-tower-pos pw-timing">P{position}</span>
+      <span className="pw-tower-pos pw-timing">{position}</span>
       <span className="pw-tower-id pw-timing" translate="no">
         {id}
       </span>
@@ -317,13 +782,29 @@ function TowerRow({ position, strategy, best, busy, onToggle }: { position: numb
         <span>{count(fillsToday, 'fill')} today</span>
         {state.kind === 'paused' && <span>since {localClock(state.at)}</span>}
       </span>
-      {state.kind === 'halted' && <p className="pw-tower-reason pw-small">{state.reason}</p>}
+      {state.kind === 'halted' && (
+        <div className="pw-tower-reason">
+          <p className="pw-small">{state.reason}</p>
+          <dl className="pw-tower-halt">
+            <div>
+              <dt className="pw-small">Halted at</dt>
+              <dd className="pw-figure">{localClock(state.at)}</dd>
+            </div>
+            {breached.map((l) => (
+              <div key={l.id}>
+                <dt className="pw-small">{l.label}</dt>
+                <dd className={`pw-figure ${l.id === 'daily-loss' ? 'pw-amount' : ''}`}>{l.detail}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
     </li>
   );
 }
 
 /** Strategies ranked like a timing tower: by today's P&L, best first. Pausing is immediate; resuming asks first. */
-export function TimingTower({ strategies, footer }: { strategies: Strategy[]; footer?: ReactNode }) {
+export function TimingTower({ strategies, limits = [], footer }: { strategies: Strategy[]; limits?: Limit[]; footer?: ReactNode }) {
   const [pending, setPending] = useState<{ id: string; kinds: string } | null>(null);
   const [resuming, setResuming] = useState<Strategy | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -333,6 +814,27 @@ export function TimingTower({ strategies, footer }: { strategies: Strategy[]; fo
   const busy = pending?.id ?? null;
   const ranked = strategies.toSorted((a, b) => b.todayPl - a.todayPl);
   const leader = ranked[0];
+  const breached = limits.filter((l) => l.breached);
+
+  // An overtake slides each row from its old place to its new one, like a timing tower. Rows are measured every
+  // render so a halt reason appearing above never skews the next slide; first paint and reduced motion don't move.
+  const listRef = useRef<HTMLOListElement>(null);
+  const order = ranked.map((s) => s.id).join();
+  const placed = useRef<{ order: string; tops: Map<string, number> } | null>(null);
+  useLayoutEffect(() => {
+    const rows = [...(listRef.current?.children ?? [])] as HTMLElement[];
+    const tops = new Map(rows.map((r) => [r.dataset.id ?? '', r.offsetTop]));
+    const before = placed.current;
+    placed.current = { order, tops };
+    if (!before || before.order === order || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    for (const row of rows) {
+      const from = before.tops.get(row.dataset.id ?? '');
+      const to = tops.get(row.dataset.id ?? '');
+      if (from === undefined || to === undefined || from === to) continue;
+      // The row gaining places passes over the one it overtakes.
+      row.animate([{ translate: `0 ${from - to}px`, zIndex: from > to ? 1 : 0 }, { translate: '0 0', zIndex: from > to ? 1 : 0 }], { duration: 480, easing: 'cubic-bezier(.16, 1, .3, 1)' });
+    }
+  });
 
   const pause = async (s: Strategy) => {
     setPending({ id: s.id, kinds });
@@ -348,7 +850,7 @@ export function TimingTower({ strategies, footer }: { strategies: Strategy[]; fo
   return (
     <section className="pw-tower" aria-labelledby={titleId}>
       <header className="pw-tower-head">
-        <h2 id={titleId} className="pw-title">
+        <h2 id={titleId} className="pw-heading pw-screen-title">
           Strategies
         </h2>
         <span className="pw-small pw-muted">ranked by today’s P&amp;L</span>
@@ -358,18 +860,27 @@ export function TimingTower({ strategies, footer }: { strategies: Strategy[]; fo
           List them in <span translate="no">PITWALL_STRATEGIES</span> in <span translate="no">.env</span>.
         </Empty>
       ) : (
-        <ol className="pw-tower-list">
-          {ranked.map((s, i) => (
-            <TowerRow
-              key={s.id}
-              position={i + 1}
-              strategy={s}
-              best={s === leader && s.todayPl > 0 && ranked.length > 1}
-              busy={busy === s.id}
-              onToggle={() => (s.state.kind === 'running' ? pause(s) : setResuming(s))}
-            />
-          ))}
-        </ol>
+        <>
+          <div className="pw-tower-cols pw-small" aria-hidden>
+            <span>Pos</span>
+            <span>Strategy</span>
+            <span>State</span>
+            <span>Today</span>
+          </div>
+          <ol className="pw-tower-list" ref={listRef}>
+            {ranked.map((s, i) => (
+              <TowerRow
+                key={s.id}
+                position={i + 1}
+                strategy={s}
+                best={s === leader && s.todayPl > 0 && ranked.length > 1}
+                busy={busy === s.id}
+                breached={breached}
+                onToggle={() => (s.state.kind === 'running' ? pause(s) : setResuming(s))}
+              />
+            ))}
+          </ol>
+        </>
       )}
       {error && (
         <p className="pw-help-error pw-label pw-tower-error" role="alert">
@@ -387,7 +898,7 @@ function ResumeSheet({ strategy, onClose, onSent }: { strategy: Strategy; onClos
     () => sendCommand({ kind: 'resume-strategy', strategyId: strategy.id }),
     () => {
       onSent();
-      onClose();
+      leaveSheet(onClose);
     },
   );
   return (
@@ -428,19 +939,24 @@ export function collapseEvents(events: EventRecord[]): EventGroup[] {
   return groups;
 }
 
-/** Events newer than the newest one on screen when this list first rendered. Only those animate in. */
-export function useArrivals(events: EventRecord[]) {
-  const [baseline] = useState(() => events.reduce((max, e) => Math.max(max, e.id), 0));
-  return (e: EventRecord) => e.id > baseline;
+/** Rows whose key was not on screen when this list first rendered: they arrived while you watched. Only those animate in. */
+export function useArrivals<T>(rows: T[], key: (row: T) => string | number) {
+  const [seen] = useState(() => new Set(rows.map(key)));
+  return (row: T) => !seen.has(key(row));
 }
 
 const SEVERITY_WORD: Record<Severity, string> = { info: 'INFO', warn: 'WARN', error: 'ERROR', halt: 'HALT' };
 
-export function EventRow({ group, fresh = false }: { group: EventGroup; fresh?: boolean }) {
+export function EventRow({ group, fresh }: { group: EventGroup; fresh: (e: EventRecord) => boolean }) {
   const { latest, earliest, count: n } = group;
   return (
-    <li className={`pw-event ${fresh ? 'pw-event-new' : ''}`}>
-      <span className="pw-event-time pw-small">{localClock(latest.at)}</span>
+    <li className={`pw-event pw-event-${latest.severity} ${fresh(earliest) ? 'pw-event-new' : ''}`}>
+      {/* A new row drops in once. A repeat joining it only flashes the row, so the row itself stays put. */}
+      {fresh(latest) && <span key={latest.id} className="pw-event-flash" aria-hidden />}
+      {/* Keyed by the latest event, so a repeat joining the run puts its new time on a fresh plate. */}
+      <span key={latest.id} className={`pw-event-time pw-small ${fresh(latest) ? 'pw-fresh' : ''}`}>
+        {localClock(latest.at)}
+      </span>
       <span className={`pw-event-sev pw-small pw-sev-${latest.severity}`}>{SEVERITY_WORD[latest.severity]}</span>
       <span className="pw-event-msg pw-body">{latest.message}</span>
       <span className="pw-event-src pw-small">{n > 1 ? `${latest.source}, ${n} times since ${localClock(earliest.at)}` : latest.source}</span>
@@ -451,10 +967,40 @@ export function EventRow({ group, fresh = false }: { group: EventGroup; fresh?: 
 export function EventLog({ events, fresh }: { events: EventGroup[]; fresh: (e: EventRecord) => boolean }) {
   return (
     <ol className="pw-events">
+      {/* Keyed by a run's first event, which stays the same as repeats join on top. */}
       {events.map((g) => (
-        <EventRow key={g.latest.id} group={g} fresh={fresh(g.latest)} />
+        <EventRow key={g.earliest.id} group={g} fresh={fresh} />
       ))}
     </ol>
+  );
+}
+
+export const PAGE = 50;
+
+/** The foot of a long newest-first list: how much of it shows, and a button for the next page of older rows. */
+export function ShowOlder({ shown, total, onMore }: { shown: number; total: number; onMore: () => void }) {
+  const foot = useRef<HTMLParagraphElement>(null);
+  if (total <= PAGE) return null;
+  const next = Math.min(PAGE, total - shown);
+  return (
+    <div className="pw-more">
+      {/* Takes focus when the last page opens and the button goes. */}
+      <p ref={foot} tabIndex={-1} className="pw-small">
+        {next > 0 ? `Newest ${shown} of ${total}` : `All ${total} shown`}
+      </p>
+      {next > 0 && (
+        <button
+          type="button"
+          className="pw-btn pw-btn-compact pw-label"
+          onClick={() => {
+            onMore();
+            if (next === total - shown) foot.current?.focus();
+          }}
+        >
+          Show {next} older
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -498,6 +1044,15 @@ export function PasscodeInput({ value, onChange, error, attempt = 0, help }: { v
   );
 }
 
+/** Plays the open sheet out, a short fall and fade, then runs then, so a sheet never just vanishes. A second call while it leaves does nothing. */
+export function leaveSheet(then: () => void) {
+  const sheet = document.querySelector<HTMLDialogElement>('dialog.pw-sheet[open]');
+  if (sheet?.dataset.leaving !== undefined) return;
+  if (!sheet || matchMedia('(prefers-reduced-motion: reduce)').matches) return then();
+  sheet.dataset.leaving = '';
+  sheet.animate([{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '0 6px' }], { duration: 160, easing: 'ease-in', fill: 'forwards' }).finished.then(then, then);
+}
+
 export function ConfirmSheet(props: {
   title: ReactNode;
   confirmLabel: string;
@@ -533,12 +1088,12 @@ export function ConfirmSheet(props: {
       aria-labelledby={titleId}
       onCancel={(e) => {
         e.preventDefault();
-        onCancel();
+        leaveSheet(onCancel);
       }}
       onPointerDown={(e) => (pressedOn.current = e.target)}
       // A key still held from Hold to flatten keeps repeating into the sheet; without this it presses Cancel.
       onKeyDown={(e) => e.repeat && (e.key === 'Enter' || e.key === ' ') && e.preventDefault()}
-      onClick={(e) => e.target === e.currentTarget && pressedOn.current === e.currentTarget && onCancel()}
+      onClick={(e) => e.target === e.currentTarget && pressedOn.current === e.currentTarget && leaveSheet(onCancel)}
     >
       <form className="pw-sheet-form" onSubmit={submit}>
         <h2 id={titleId} className="pw-title">
@@ -551,7 +1106,7 @@ export function ConfirmSheet(props: {
           </p>
         )}
         <div className="pw-sheet-actions">
-          <button ref={cancelRef} type="button" className="pw-btn" onClick={onCancel}>
+          <button ref={cancelRef} type="button" className="pw-btn" onClick={() => leaveSheet(onCancel)}>
             Cancel
           </button>
           <button type="submit" className={`pw-btn ${confirmClass}`} disabled={busy}>

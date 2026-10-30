@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { demoCommand, demoSnapshot, demoTick, startDemo } from './demo.ts';
+import { demoCommand, demoDailyEquity, demoSnapshot, demoTick, startDemo } from './demo.ts';
 import type { StrategyId } from './domain.ts';
 
 const now = new Date('2026-10-13T17:30:00Z');
@@ -57,4 +57,13 @@ test('prices walk the same way for the same seed, and equity always adds up', ()
   assert.ok(equityMatchesStrategies(a));
   assert.notDeepEqual(a.snapshot.positions, startDemo(now, 7).snapshot.positions, 'prices moved');
   assert.equal(a.snapshot.heartbeatAt, later(10).toISOString());
+});
+
+test('the demo history is two years of weekday closes, oldest first, ending yesterday at the previous close', () => {
+  const days = demoDailyEquity(now);
+  assert.equal(days.length, 520);
+  assert.equal(days.at(-1)?.date, '2026-10-12');
+  assert.equal(days.at(-1)?.equity, demoSnapshot(now).account.lastEquity);
+  assert.ok(days.every((d) => ![0, 6].includes(new Date(`${d.date}T00:00:00Z`).getUTCDay())), 'no weekends');
+  assert.ok(days.every((d, i) => i === 0 || (days[i - 1]?.date ?? '') < d.date), 'ascending');
 });

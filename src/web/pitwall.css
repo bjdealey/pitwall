@@ -1,7 +1,10 @@
 /* Pitwall: a pit-wall timing screen. Asphalt page, black screens, flag colours only where they mean something. */
 
 *, *::before, *::after { box-sizing: border-box; }
-:root { scrollbar-color: var(--control) transparent; --gutter: var(--space-6); }
+:root { scrollbar-color: var(--control) transparent; }
+/* Spacing grows with the window instead of stepping at a breakpoint, so dragging a window never makes it jump.
+   The gutter is 16px at a 560px window and 24px from 900px; gaps run 12px to 16px and table cells 4px to 16px over the same span. */
+:root { --gutter: clamp(var(--space-4), 2.35vw + 2.8px, var(--space-6)); --gap: clamp(var(--space-3), 1.18vw + 5.4px, var(--space-4)); --cell: clamp(var(--space-1), 2.22vw - 4px, var(--space-4)); }
 html, body { height: 100%; }
 html { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 @media (pointer: fine) { html { overscroll-behavior: none; } }
@@ -22,6 +25,7 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-delta { white-space: nowrap; }
 .pw-up { color: var(--pos); }
 .pw-down { color: var(--neg); }
+.pw-warn { color: var(--warn); }
 .pw-flat { color: var(--muted); }
 .pw-best { color: var(--best); }
 
@@ -33,11 +37,11 @@ button:disabled { cursor: default; opacity: .6; }
 
 /* Track band: the session's flag. */
 .pw-track { display: flex; align-items: center; gap: var(--space-3); min-height: var(--track-h); padding-block: var(--space-2); transition: background-color 400ms ease-out, color 400ms ease-out; }
-.pw-track-green { background: var(--surface); color: var(--fg); border-bottom: 1px solid var(--border); }
+.pw-track-green { background: var(--surface); color: var(--fg); }
 .pw-track-green .pw-flag { color: var(--flag-green); }
 .pw-track-yellow { background: var(--flag-yellow); color: var(--on-flag); }
 .pw-track-red { background: var(--flag-red); color: var(--on-flag-red); }
-.pw-track-chequered, .pw-track-none { background: var(--surface-2); color: var(--fg); border-bottom: 1px solid var(--border); }
+.pw-track-chequered, .pw-track-none { background: var(--surface-2); color: var(--fg); }
 .pw-track-text { flex: 1; min-width: 0; text-wrap: pretty; overflow-wrap: anywhere; }
 .pw-track-text strong { font-weight: 700; }
 .pw-track-chequered .pw-track-detail, .pw-track-none .pw-track-detail { color: var(--muted); }
@@ -53,14 +57,31 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-flag-check { fill: var(--surface); }
 
 /* Gantry header: wordmark, screens, market, Stop. */
-.pw-gantry { display: flex; align-items: center; gap: var(--space-4); height: var(--header-h); background: var(--surface); border-bottom: 1px solid var(--border); }
-.pw-nav { display: flex; align-self: stretch; gap: var(--space-1); margin: 0 auto 0 var(--space-6); }
-.pw-nav-item { position: relative; display: flex; align-items: center; padding: 0 var(--space-3); color: var(--muted); text-decoration: none; transition: color 150ms ease-out; }
-.pw-nav-item:hover, .pw-nav-item[aria-current="page"] { color: var(--fg); }
-.pw-nav-pill { position: absolute; left: var(--space-3); right: var(--space-3); bottom: -1px; height: 3px; background: var(--accent); view-transition-name: nav-pill; }
+.pw-gantry { display: flex; align-items: center; gap: var(--gap); min-width: 0; height: var(--header-h); background: var(--surface); }
+/* A strip of chequered flag after the wordmark, the gantry's one ornament. When the gantry runs short, the strip gives
+   up its width before anything else does, so the market chip and Stop always fit. It pulls back the gap before it, and
+   its mask keeps its first 12px clear, so the flag sits 12px from the wordmark and leaves no gap behind when it is gone. */
+.pw-strip { flex: 0 1000 42px; min-width: 0; height: 10px; margin-left: calc(-1 * var(--gap)); background: conic-gradient(var(--fg) 90deg, transparent 0 180deg, var(--fg) 0 270deg, transparent 0) 12px 0 / 10px 10px; mask: linear-gradient(90deg, transparent 12px, #000 0); }
+/* Whatever follows the nav takes the free space, so market, Full screen and Stop hold the right edge whether or not the nav shows. */
+/* Tabs draw closer from 1000px to 900px, so the widest market chip still fits beside them. */
+.pw-nav { --nav-pad: clamp(var(--space-2), 4vw - 28px, var(--space-3)); display: flex; align-self: stretch; gap: var(--space-1); margin-left: var(--space-6); transition: opacity 240ms ease-out, display 240ms allow-discrete; }
+@starting-style { .pw-nav { opacity: 0; } }
+.pw-nav + * { margin-left: auto; }
+.pw-nav-item { position: relative; isolation: isolate; display: flex; align-items: center; padding: 0 var(--nav-pad); color: var(--muted); text-decoration: none; transition: color 150ms ease-out; }
+.pw-nav-item:hover { color: var(--fg); }
+.pw-nav-item[aria-current="page"] { color: var(--surface); }
+/* The current tab stands on a timing-white plate, like a title, and slides to the next tab. */
+.pw-nav-pill { position: absolute; top: 50%; left: calc(var(--nav-pad) - 4px); right: calc(var(--nav-pad) - 4px); z-index: -1; height: 30px; translate: 0 -50%; background: var(--accent); box-shadow: var(--shadow-plate); transform: skewX(-20deg); view-transition-name: nav-pill; }
 
-.pw-market { display: inline-flex; align-items: center; gap: var(--space-2); height: var(--chip-h); padding: 0 var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); white-space: nowrap; }
-.pw-market-state { color: var(--fg); font-weight: 700; }
+.pw-market { --face: var(--surface-2); position: relative; isolation: isolate; display: inline-flex; align-items: center; gap: var(--space-2); height: var(--chip-h); padding: 0 var(--space-3); border: 0; background: none; color: var(--muted); white-space: nowrap; cursor: pointer; }
+.pw-market:hover { --face: var(--border); }
+.pw-market::after { content: ""; position: absolute; inset: 50% 0 auto; height: var(--tap-min); translate: 0 -50%; }
+.pw-market-state { max-width: 8em; overflow: hidden; color: var(--fg); font-weight: 700; transition: max-width 360ms cubic-bezier(.16, 1, .3, 1), margin-left 360ms cubic-bezier(.16, 1, .3, 1), opacity 240ms ease-out, visibility 360ms; }
+.pw-market-next { max-width: 10em; overflow: hidden; transition: max-width 360ms cubic-bezier(.16, 1, .3, 1), margin-left 360ms cubic-bezier(.16, 1, .3, 1), opacity 240ms ease-out, visibility 360ms; }
+/* The market chip's whole line, under the chip with right edges flush; MarketChip sets top, right and max-width. */
+.pw-popover { --pop-y: -4px; inset: auto; margin: 0; padding: var(--space-2) var(--space-3); background: var(--surface-2); color: var(--fg); border: 0; border-radius: var(--radius-sm); box-shadow: var(--shadow-sheet); transition: opacity 160ms ease-out, translate 160ms ease-out, display 160ms allow-discrete, overlay 160ms allow-discrete; }
+.pw-popover:not(:popover-open) { opacity: 0; translate: 0 var(--pop-y); }
+@starting-style { .pw-popover:popover-open { opacity: 0; translate: 0 var(--pop-y); } }
 .pw-light { display: inline-block; width: 8px; height: 8px; flex: none; border-radius: var(--radius-full); background: var(--muted); }
 .pw-light-pos, .pw-market-open .pw-light { background: var(--pos); }
 .pw-light-warn { background: var(--warn); }
@@ -68,121 +89,212 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-market-pre .pw-light, .pw-market-after .pw-light { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
 
 /* Buttons. */
-.pw-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--tap-min); padding: 0 var(--space-4); border: 1px solid var(--control); border-radius: var(--radius-md); background: transparent; color: var(--fg); font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 700; font-stretch: 87.5%; text-decoration: none; white-space: nowrap; cursor: pointer; transition: background-color 150ms ease-out, border-color 150ms ease-out, transform 120ms ease-out; }
-.pw-btn:hover:not(:disabled) { background: var(--surface-2); }
-.pw-btn:active:not(:disabled) { transform: scale(.98); }
+.pw-btn { --face: var(--surface-3); position: relative; isolation: isolate; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--tap-min); padding: 0 var(--space-4); border: 0; background: none; color: var(--fg); font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 700; font-stretch: 87.5%; text-decoration: none; white-space: nowrap; cursor: pointer; transition: transform 120ms ease-out; }
+/* Hover stretches the plate 3px each way, and a default button's face lightens. */
+.pw-btn:hover:not(:disabled) { --face: var(--border); }
+.pw-btn:hover:not(:disabled)::before { inset: 0 -3px; }
+.pw-btn:focus-visible { outline: none; }
+.pw-btn:focus-visible::before { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* A press sinks the plate 3px into its side. */
+.pw-btn:active:not(:disabled), .pw-btn.pw-holding { transform: translate(3px, 3px); }
+.pw-btn:is(:active:not(:disabled), .pw-holding)::before { box-shadow: 1px 1px 0 var(--side); }
 .pw-btn-compact { padding: 0 var(--space-3); }
 .pw-btn-flatten { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-.pw-btn-stop { border-color: var(--neg); color: var(--neg); }
-.pw-btn-stop:hover:not(:disabled) { background: var(--neg-soft); }
-.pw-btn-danger, .pw-btn-flatten { border-color: var(--flag-red); background: var(--flag-red); color: var(--on-flag-red); }
-.pw-btn-danger:hover:not(:disabled), .pw-btn-flatten:hover:not(:disabled) { background: var(--flag-red); border-color: var(--fg); }
-.pw-btn-primary { border-color: var(--fg); background: var(--fg); color: var(--surface); }
-.pw-btn-primary:hover:not(:disabled) { border-color: var(--fg); background: var(--fg); box-shadow: inset 0 0 0 2px var(--surface); }
+.pw-btn-stop, .pw-btn-stop:hover:not(:disabled) { --face: var(--neg-soft); color: var(--neg); }
+.pw-btn-danger, .pw-btn-flatten, :is(.pw-btn-danger, .pw-btn-flatten):hover:not(:disabled) { --face: var(--flag-red); color: var(--on-flag-red); }
+.pw-btn-primary, .pw-btn-primary:hover:not(:disabled) { --face: var(--fg); color: var(--surface); }
 .pw-btn > span, .pw-btn > svg { position: relative; }
-.pw-btn .pw-hold { position: absolute; inset: 0; background: var(--on-flag-red); opacity: .25; transform-origin: left; transform: scaleX(var(--hold, 0)); transition: transform 240ms cubic-bezier(.16, 1, .3, 1); }
+.pw-btn .pw-hold { position: absolute; inset: 0; background: var(--on-flag-red); opacity: .25; transform-origin: left; transform: skewX(-20deg) scaleX(var(--hold, 0)); transition: transform 240ms cubic-bezier(.16, 1, .3, 1); }
 .pw-holding .pw-hold { transition: none; }
-.pw-btn.pw-holding { transform: scale(.985); }
+/* Plates: buttons, the market chip and the chosen range key stand on a face leaning 20°, like the title plates and the
+   panel wipe. The face is drawn on ::before, so the text stays upright and the tap target stays the button's box.
+   Each is a slab with a 4px side in its own face colour, darkened. */
+.pw-btn::before, .pw-market::before, .pw-trace-range::before { --side: color-mix(in srgb, var(--face) 60%, #000); content: ""; position: absolute; inset: 0; z-index: -1; background: var(--face); transform: skewX(-20deg); transition: background-color 150ms ease-out, inset 150ms ease-out, box-shadow 150ms ease-out; }
+.pw-btn::before, .pw-market::before, .pw-trace-range[aria-pressed="true"]::before { box-shadow: 1px 1px 0 var(--side), 2px 2px 0 var(--side), 3px 3px 0 var(--side), 4px 4px 0 var(--side); }
 
 /* Shell. */
-.pw-app { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; height: 100dvh; }
-.pw-content { min-height: 0; overflow-y: auto; view-transition-name: content; }
+.pw-app { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) 0px; height: 100dvh; overflow: clip; transition: grid-template-rows 360ms cubic-bezier(.16, 1, .3, 1); }
+/* Positioned, so screen-reader-only text inside is placed in the scroller and never stretches the page past the viewport. */
+.pw-content { position: relative; min-height: 0; overflow-x: hidden; overflow-y: auto; }
 .pw-content:focus { outline: none; }
-.pw-main { width: 100%; max-width: 1600px; margin: 0 auto; padding-block: var(--space-6); }
+.pw-main { width: 100%; max-width: 1600px; margin: 0 auto; padding-block: var(--gutter); }
 .pw-track, .pw-gantry, .pw-main { padding-left: max(var(--gutter), env(safe-area-inset-left)); padding-right: max(var(--gutter), env(safe-area-inset-right)); }
 .pw-waiting { padding: var(--space-6) 0; }
-.pw-tabbar { display: none; }
+/* The tab bar rises from the bottom edge as its row grows, and folds away the same way. */
+.pw-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: var(--tabbar-h); align-content: start; overflow: hidden; visibility: hidden; padding-right: env(safe-area-inset-right); padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); background: var(--surface); transition: visibility 360ms; }
 
 /* Overview: timing tower on the left, pit board and screens on the right. */
 .pw-ov { display: grid; grid-template-columns: var(--tower-w) minmax(0, 1fr); grid-template-areas: "tower board" "tower screens" "tower events"; grid-template-rows: auto auto 1fr; gap: var(--space-4); align-items: start; }
 .pw-ov-tower { grid-area: tower; }
+@media (min-width: 1100px) and (min-height: 720px) { .pw-ov-tower { position: sticky; top: var(--space-6); } }
 .pw-ov-board { grid-area: board; }
-.pw-ov-screens { grid-area: screens; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
+.pw-ov-screens { grid-area: screens; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 .pw-ov-events { grid-area: events; }
 .pw-ov-positions { grid-column: 1 / -1; }
 
 /* Pit board: stacked slats with asphalt showing between them, beside the trace. */
 .pw-board-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: var(--space-1); }
 .pw-slats { display: flex; flex-direction: column; gap: var(--space-1); container-type: inline-size; }
-.pw-slat { display: flex; flex-direction: column; justify-content: center; gap: var(--space-1); padding: var(--space-3) var(--space-4); background: var(--surface); border-radius: var(--radius-sm); }
+.pw-slat { display: flex; flex-direction: column; justify-content: center; gap: var(--space-1); padding: var(--space-3) var(--space-4); }
 .pw-slat-hero { flex: 1; padding: var(--space-4); }
 .pw-slat-label { color: var(--muted); }
+.pw-slat-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+/* Privacy mode: the eye sits at the end of a slat's label and its tap target reaches 44px. Money and quantities blur in place, so nothing shifts. */
+.pw-privacy { position: relative; display: inline-flex; margin: calc(-1 * var(--space-1)) 0; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; }
+.pw-privacy::after { content: ""; position: absolute; inset: 50% auto auto 50%; width: var(--tap-min); height: var(--tap-min); translate: -50% -50%; }
+.pw-privacy:hover, .pw-privacy[aria-pressed="true"] { color: var(--fg); }
+.pw-private .pw-amount { filter: blur(.3em); }
 .pw-slat-change { flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-1) var(--space-3); }
 .pw-slat-pair { flex-direction: row; justify-content: space-between; gap: var(--space-4); }
 .pw-slat-pair > div { display: flex; flex-direction: column; gap: 2px; }
 .pw-slat-pair > div + div { text-align: right; }
 /* Sized to the slat and the figure's length (--chars), so a seven-figure equity still fits a 320px phone. Archivo's widest condensed figures run .45em. */
-.pw-hero { font-size: min(72px, calc((100cqi - 2 * var(--space-4)) / (var(--chars, 11) * .45))); line-height: .9; white-space: nowrap; }
+.pw-hero { font-size: min(72px, calc((100cqi - 2 * var(--space-4) - 2px) / (var(--chars, 11) * .45))); line-height: .9; white-space: nowrap; }
 
-.pw-trace { display: flex; flex-direction: column; min-height: 100%; margin: 0; padding: var(--space-4); background: var(--surface); border-radius: var(--radius-sm); }
-.pw-trace-plot { position: relative; flex: 1; min-height: 180px; }
+.pw-trace { display: flex; flex-direction: column; min-height: 100%; margin: 0; padding: var(--space-4); }
+.pw-trace-plot { position: relative; flex: 1; min-height: clamp(120px, 17.6vw + 21px, 180px); cursor: crosshair; touch-action: pan-y; }
+/* Scrub: a dashed cursor snaps to the nearest sample and a readout at the top gives its time, equity and change, plus any flag there. */
+.pw-trace-cursor { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.pw-trace-cursor-dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: var(--radius-full); background: var(--surface); box-shadow: 0 0 0 2px currentColor; pointer-events: none; }
+.pw-trace-readout { position: absolute; top: 0; z-index: 1; display: flex; flex-direction: column; gap: 2px; width: max-content; max-width: min(100%, 28rem); padding: var(--space-1) var(--space-2); background: var(--surface-2); border-radius: var(--radius-sm); color: var(--fg); pointer-events: none; }
+.pw-trace-readout-row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-3); white-space: nowrap; }
+.pw-trace-readout-row .pw-small { color: var(--muted); }
+.pw-trace-readout-event { min-width: 0; overflow-wrap: anywhere; }
+.pw-trace-readout-event > * + * { margin-left: var(--space-2); }
+.pw-trace-scrubbing .pw-trace-tag { visibility: hidden; }
+/* Flags: a stripe for each warning, error and halt, in the event log's stripe colour. They stand on the axis rule, under the plot, so no line, dot or label covers one or is covered by one. */
+.pw-trace-flag { position: absolute; top: 100%; width: 3px; height: 12px; translate: -50% 0; background: var(--stripe); pointer-events: none; }
+/* Range presets under the axis, like a charting app's range bar: quiet words, the chosen one on a timing-white plate. Each tap target reaches 44px tall. */
+.pw-trace-ranges { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-2); }
+.pw-trace-range { --face: transparent; position: relative; isolation: isolate; padding: 3px calc(var(--space-2) + 1px); border: 0; border-radius: var(--radius-sm); background: none; color: var(--muted); cursor: pointer; }
+.pw-trace-range::after { content: ""; position: absolute; inset: 50% 0 auto; height: var(--tap-min); translate: 0 -50%; }
+.pw-trace-range:hover { color: var(--fg); }
+.pw-trace-range[aria-pressed="true"] { --face: var(--fg); color: var(--surface); }
+.pw-trace-empty .pw-trace-ranges { justify-content: center; }
 .pw-trace-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .pw-trace-line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.pw-trace-area { fill: currentColor; fill-opacity: .12; }
+.pw-trace-grid { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
+/* Vertical lines are spans, not SVG, so a line both ranges share can slide to its new place, eased like the line's morph. */
+.pw-trace-vline { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); pointer-events: none; transition: left 600ms cubic-bezier(.33, 1, .68, 1); }
 .pw-trace-base { stroke: var(--control); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
 .pw-trace-legend { display: inline-flex; align-items: center; gap: var(--space-2); }
 .pw-trace-swatch { width: 20px; border-top: 1px dashed var(--control); }
+.pw-trace-now { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: var(--radius-full); background: currentColor; box-shadow: 0 0 0 3px var(--surface); }
+.pw-trace-low { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: var(--radius-full); background: var(--muted); box-shadow: 0 0 0 3px var(--surface); }
+/* A dot's figure and time, set on the curve like a tide chart's high and low water. */
+.pw-trace-tag { position: absolute; display: inline-flex; align-items: baseline; gap: var(--space-2); padding: 0 var(--space-1); background: var(--surface); color: var(--fg); white-space: nowrap; pointer-events: none; translate: var(--tx, -50%) var(--ty, 0); }
+.pw-trace-tag .pw-small { color: var(--muted); }
+.pw-trace-tag-above { --ty: calc(-100% - 8px); }
+.pw-trace-tag-below { --ty: 8px; }
+.pw-trace-tag-start { --tx: -8px; }
+.pw-trace-tag-end { --tx: calc(-100% + 8px); }
 .pw-trace-high { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: var(--radius-full); background: var(--best); box-shadow: 0 0 0 3px var(--surface); }
-.pw-trace-axis { display: flex; justify-content: space-between; margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--border); color: var(--muted); }
+.pw-trace-axis { display: grid; grid-template-columns: 1fr auto 1fr; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+/* Equal outer columns hold the legend at the centre whatever the end dates' widths. */
+.pw-trace-axis > :last-child { text-align: end; }
 .pw-trace-empty { justify-content: center; align-items: center; color: var(--muted); text-align: center; }
 .pw-is-stale .pw-trace { color: var(--muted); }
 
+/* Readout: the figures a screen is about, on equal slats above its table. */
+/* One strip of cells, like the columns of a timing screen, not a row of separate cards. Square cells join into one face. */
+.pw-readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin: 0; }
+.pw-readout .pw-slat { min-width: 0; padding: var(--gap); border-radius: 0; container-type: inline-size; }
+.pw-readout dd { margin: 0; font-size: min(36px, 100cqi / (var(--chars, 6) * .5)); white-space: nowrap; }
+
 /* Timing tower: strategies ranked by today's P&L. */
-.pw-tower { overflow: hidden; background: var(--surface); border-radius: var(--radius-sm); }
-.pw-tower-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: var(--space-4); border-bottom: 1px solid var(--border); }
-.pw-tower-head h2 { margin: 0; }
+.pw-tower { container-type: inline-size; }
+.pw-tower-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 52px; padding: 0 var(--space-4); background: var(--surface-3); }
+
 .pw-tower-list { margin: 0; padding: 0; list-style: none; }
-.pw-tower-row { position: relative; isolation: isolate; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto auto; grid-template-areas: "pos id gap switch" ". meta meta switch" ". reason reason reason"; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
+.pw-tower-row { position: relative; isolation: isolate; display: grid; background: var(--surface); grid-template-columns: 32px minmax(0, 1fr) auto auto; grid-template-areas: "pos id gap switch" ". meta meta switch" ". reason reason reason"; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-3) var(--space-4); }
 .pw-tower-row:nth-child(even) { background: var(--surface-2); }
-.pw-tower-row:last-child { border-bottom: 0; }
-.pw-tower-pos { grid-area: pos; color: var(--muted); }
-.pw-tower-row:first-child .pw-tower-pos { color: var(--fg); }
+/* The state bar beside the position, where a timing tower puts the team colour. */
+.pw-tower-pos::after { content: ""; position: absolute; top: 2px; bottom: 2px; left: calc(100% + 4px); width: 3px; background: var(--stripe, transparent); }
+.pw-state-running { --stripe: var(--pos); }
+.pw-state-paused { --stripe: var(--warn); }
+.pw-state-halted { --stripe: var(--flag-red); }
+/* Positions and gaps in heavy timing type, the tower's loudest figures. */
+.pw-tower-pos { position: relative; grid-area: pos; display: grid; place-items: center; height: 28px; border-radius: var(--radius-sm); background: var(--border); color: var(--muted); font-size: 21px; font-weight: 800; }
+.pw-tower-row:first-child .pw-tower-pos { background: var(--fg); color: var(--surface); }
 .pw-tower-id { grid-area: id; overflow-wrap: anywhere; }
-.pw-tower-gap { grid-area: gap; text-align: right; }
+/* The gain shrinks with the tower to `timing` size on a 320px phone, so the strategy ID keeps one line. */
+.pw-tower-gap { grid-area: gap; font-size: clamp(16px, 6.94cqi - 4px, 21px); font-weight: 700; text-align: right; }
 .pw-tower-row > .pw-switch-hit { grid-area: switch; justify-self: end; }
 .pw-tower-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); color: var(--muted); }
 .pw-tower-reason { grid-area: reason; color: var(--fg); overflow-wrap: anywhere; }
-.pw-state { font-weight: 700; letter-spacing: .04em; }
+.pw-tower-halt { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); margin: var(--space-2) 0 0; }
+.pw-tower-halt > div { display: flex; flex-direction: column; gap: 2px; }
+.pw-tower-halt dt { color: var(--muted); }
+.pw-tower-halt dd { margin: 0; }
+/* Column headings, like a standings table, only when the tower is wide enough to read as one.
+   They keep their one-line layout as they fade, so the rows under them move only once, when the space closes. */
+.pw-tower-cols { display: none; grid-template-columns: 32px minmax(140px, 16rem) minmax(0, 1fr) minmax(7rem, auto) 44px; gap: var(--space-1) var(--space-4); padding: var(--space-2) var(--space-4); background: var(--surface-2); color: var(--muted); white-space: nowrap; opacity: 0; transition: opacity 240ms ease-out, display 240ms allow-discrete; }
+.pw-tower-cols > :first-child { text-align: center; }
+.pw-tower-cols > :nth-child(4) { text-align: right; }
+@starting-style { .pw-tower-cols { opacity: 0; } }
+/* As wide as RUNNING, the widest word, so a state change never nudges the symbol and fills after it. */
+.pw-state { display: inline-block; min-width: 5.25em; font-weight: 700; letter-spacing: .04em; }
 .pw-state-chip-running { color: var(--pos); }
 .pw-state-chip-paused { color: var(--warn); }
-.pw-state-chip-halted { padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--flag-red); color: var(--on-flag-red); }
-.pw-tower-error { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); }
-.pw-tower-foot { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-top: 1px solid var(--border); }
+.pw-state-chip-halted { padding: 0 var(--space-1); text-align: center; border-radius: var(--radius-sm); background: var(--flag-red); color: var(--on-flag-red); }
+/* A wide tower, as on Strategies, reads each strategy on one line. */
+@container (min-width: 640px) {
+  .pw-tower-row { grid-template-columns: 32px minmax(140px, 16rem) minmax(0, 1fr) minmax(7rem, auto) 44px; grid-template-areas: "pos id meta gap switch" ". reason reason reason reason"; gap: var(--space-1) var(--space-4); }
+  .pw-tower-cols { display: grid; opacity: 1; }
+}
+.pw-tower-error { padding: var(--space-3) var(--space-4); }
+.pw-tower-foot { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); }
 .pw-controls { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+/* A wide tower, below 1100px, keeps the controls at a button's width and lays the system readout beside them. */
+@container (min-width: 640px) {
+  .pw-tower-foot { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); align-items: start; gap: var(--space-3) var(--space-6); }
+  .pw-tower-foot > .pw-system { grid-column: 2; grid-row: 1 / span 2; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 0 0 0 var(--space-6); }
+}
 
 .pw-switch-hit { display: inline-flex; align-items: center; min-height: var(--tap-min); cursor: pointer; }
-.pw-switch { appearance: none; position: relative; width: 44px; height: 24px; margin: 0; border: 1px solid var(--control); border-radius: var(--radius-full); background: var(--surface-2); cursor: pointer; transition: background-color 150ms ease-out, border-color 150ms ease-out; }
-.pw-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: var(--radius-full); background: var(--muted); transition: transform 150ms ease-out, background-color 150ms ease-out; }
-.pw-switch:checked { border-color: var(--pos); background: var(--pos); }
-.pw-switch:checked::after { transform: translateX(20px); background: var(--surface); }
+.pw-switch { appearance: none; position: relative; width: 44px; height: 24px; margin: 0; border: 1px solid var(--control); border-radius: var(--radius-sm); background: var(--surface-2); cursor: pointer; transition: background-color 150ms ease-out, border-color 150ms ease-out; }
+.pw-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 1px; background: var(--muted); transition: transform 150ms ease-out, background-color 150ms ease-out; }
+.pw-switch:checked { border-color: var(--pos); background: var(--pos-soft); }
+.pw-switch:checked::after { transform: translateX(20px); background: var(--pos); }
 .pw-switch:hover:not([aria-disabled="true"]) { border-color: var(--fg); }
 .pw-switch[aria-disabled="true"] { cursor: progress; }
 
-.pw-system { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3) var(--space-4); margin: 0; padding-top: var(--space-3); border-top: 1px solid var(--border); }
+.pw-system { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3) var(--space-4); margin: 0; padding-top: var(--space-3); }
 .pw-system > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pw-system dt { display: flex; align-items: center; gap: var(--space-2); color: var(--muted); }
 .pw-system dd { margin: 0; }
+.pw-system .pw-meter-track, .pw-system .pw-meter-fill { display: block; }
+.pw-system .pw-meter-track { height: 4px; margin-top: var(--space-1); mask: repeating-linear-gradient(90deg, #000 0 calc(10% - 2px), transparent calc(10% - 2px) 10%); }
 
 /* Screens: the smaller monitors on the gantry. */
-.pw-screen { min-width: 0; overflow: hidden; background: var(--surface); border-radius: var(--radius-sm); }
-.pw-screen-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--tap-min); padding: 0 var(--space-4); border-bottom: 1px solid var(--border); }
-.pw-screen-title { margin: 0; font-weight: 700; }
+.pw-screen { min-width: 0; }
+.pw-screen-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 52px; padding: 0 var(--space-4); background: var(--surface-3); }
+/* Titles read like a broadcast caption: `heading` type on a timing-white plate slanted like the panel wipe, on the head's band. */
+.pw-screen-title { position: relative; isolation: isolate; margin: 0; padding: 3px var(--space-3); color: var(--surface); }
+.pw-screen-title::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--fg); box-shadow: var(--shadow-plate); transform: skewX(-20deg); }
 .pw-screen-link { position: relative; color: var(--muted); text-decoration: none; }
 .pw-screen-link:hover { color: var(--fg); text-decoration: underline; }
 .pw-screen-body { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); }
-.pw-page { display: flex; flex-direction: column; gap: var(--space-4); max-width: 1200px; }
-.pw-page-narrow { max-width: 760px; }
+.pw-page { display: flex; flex-direction: column; gap: var(--space-4); }
+.pw-screen-flush { container-type: inline-size; }
 
 .pw-figures { display: flex; flex-direction: column; margin: 0; }
-.pw-figures-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
+.pw-figures-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) 0; }
 .pw-figures-row:first-child { padding-top: 0; }
-.pw-figures-row:last-child { padding-bottom: 0; border-bottom: 0; }
+.pw-figures-row:last-child { padding-bottom: 0; }
 .pw-figures dt { color: var(--muted); }
 .pw-figures dd { margin: 0; }
+/* Allocation: one strip split by market value, positions lit in `control` like a meter's fill and cash unlit, with a key underneath. */
+.pw-alloc { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: calc(var(--space-2) - var(--space-4)); padding-bottom: var(--space-2); }
+.pw-alloc-bar { display: flex; gap: 2px; height: 8px; }
+.pw-alloc-bar > span { flex-basis: 0; min-width: 2px; background: var(--control); }
+.pw-alloc-bar > .pw-alloc-cash { background: var(--border); }
+.pw-alloc-key { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: 0; padding: 0; list-style: none; }
+.pw-alloc-key li { display: inline-flex; align-items: baseline; gap: var(--space-2); }
 
 .pw-meter-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
-.pw-meter-track { height: 6px; margin-top: var(--space-2); overflow: hidden; border-radius: var(--radius-full); background: var(--border); }
-.pw-meter-fill { height: 100%; background: var(--control); transform-origin: left; }
+.pw-meter-track { height: 8px; margin-top: var(--space-2); overflow: hidden; background: var(--border); mask: repeating-linear-gradient(90deg, #000 0 calc(5% - 2px), transparent calc(5% - 2px) 5%); }
+.pw-meter-fill { height: 100%; background: var(--control); transform-origin: left; transition: transform 480ms cubic-bezier(.16, 1, .3, 1); }
 .pw-meter-warn .pw-meter-fill { background: var(--warn); }
 .pw-meter-warn .pw-meter-pct { color: var(--warn); }
 .pw-meter-crit .pw-meter-fill { background: var(--neg); }
@@ -191,20 +303,37 @@ button:disabled { cursor: default; opacity: .6; }
 
 .pw-table-wrap { overflow-x: auto; }
 .pw-table { width: 100%; border-collapse: collapse; }
-.pw-table th { height: 36px; padding: 0 var(--space-4); border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 500; text-align: left; white-space: nowrap; }
-.pw-table td { height: var(--row-h); padding: 0 var(--space-4); border-bottom: 1px solid var(--border); white-space: nowrap; }
-.pw-table tbody tr:nth-child(even) td { background: var(--surface-2); }
-.pw-table tr:last-child td { border-bottom: 0; }
+.pw-table th { height: 36px; padding: 0 var(--cell); color: var(--muted); font-weight: 500; text-align: left; white-space: nowrap; }
+.pw-table td { height: var(--row-h); padding: 0 var(--cell); white-space: nowrap; }
+/* An inset shadow paints the row in one pass. A row or cell background is painted cell by cell, with a hairline seam where columns meet on a fractional pixel. */
+.pw-table thead tr, .pw-table tbody tr:nth-child(even) { box-shadow: inset 0 0 0 100vmax var(--surface-2); }
+.pw-table :is(th, td):first-child { padding-left: var(--space-4); }
+.pw-table :is(th, td):last-child { padding-right: var(--space-4); }
 .pw-table .pw-r { text-align: right; }
+/* The foot of a long newest-first list: the count, and Show older on the right. */
+.pw-more { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) var(--space-4) var(--space-4); }
+.pw-more p { margin: 0; color: var(--muted); }
+/* Each position's P&L % against the widest one, either side of zero. */
+.pw-pl { display: inline-flex; align-items: center; gap: var(--space-3); }
+.pw-pl-bar { position: relative; width: 64px; height: 8px; background: linear-gradient(var(--control), var(--control)) center / 1px 100% no-repeat; }
+.pw-pl-bar::after { content: ""; position: absolute; top: 1px; bottom: 1px; left: 50%; width: 50%; background: currentColor; transform-origin: left; transform: scaleX(var(--pl, 0)); }
 .pw-sev-error, .pw-sev-halt { color: var(--neg); }
 .pw-sev-warn { color: var(--warn); }
 .pw-sev-info { color: var(--muted); }
+.pw-status { display: inline-block; padding: 0 var(--space-1); border-radius: var(--radius-sm); font-weight: 700; }
+.pw-status.pw-sev-error { background: var(--neg-soft); }
+.pw-status.pw-sev-warn { background: var(--warn-soft); }
 
 .pw-events { margin: 0; padding: 0; list-style: none; }
-.pw-event { display: grid; grid-template-columns: 72px 52px minmax(0, 1fr); grid-template-areas: "time sev msg" ". . src"; align-items: baseline; gap: 2px var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); content-visibility: auto; contain-intrinsic-size: auto 72px; }
-.pw-event:last-child { border-bottom: 0; }
+.pw-event { position: relative; isolation: isolate; display: grid; grid-template-columns: 72px 60px minmax(0, 1fr); grid-template-areas: "time sev msg" ". . src"; align-items: baseline; gap: 2px var(--space-3); padding: var(--space-3) var(--space-4); content-visibility: auto; contain-intrinsic-size: auto 72px; }
+.pw-event:nth-child(even) { background: var(--surface-2); }
+.pw-event-warn { --stripe: var(--warn); }
+.pw-event-error { --stripe: var(--neg); }
+.pw-event-halt { --stripe: var(--flag-red); }
 .pw-event-time { grid-area: time; color: var(--muted); }
-.pw-event-sev { grid-area: sev; font-weight: 700; letter-spacing: .04em; }
+.pw-event-sev { grid-area: sev; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+/* The same 3px by 12px mark as the event's flag on the trace. INFO has none but keeps the space, so the words align. */
+.pw-event-sev::before { content: ""; display: inline-block; width: 3px; height: 12px; margin-right: 6px; vertical-align: -2px; background: var(--stripe, transparent); }
 .pw-event-msg { grid-area: msg; min-width: 0; overflow-wrap: anywhere; }
 .pw-event-src { grid-area: src; color: var(--muted); }
 
@@ -217,46 +346,91 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-help { color: var(--muted); }
 .pw-help-error { color: var(--neg); }
 
-.pw-sheet { width: calc(100% - 2 * var(--space-4)); max-width: 460px; max-height: calc(100dvh - 2 * var(--space-4)); padding: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); color: var(--fg); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sheet); }
+.pw-sheet { width: calc(100% - 2 * var(--space-4)); max-width: 460px; max-height: calc(100dvh - 2 * var(--space-4)); padding: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); color: var(--fg); border: 0; border-radius: var(--radius-md); box-shadow: var(--shadow-sheet); }
 .pw-sheet::backdrop { background: var(--scrim); animation: pw-fade-in 160ms ease-out both; }
 .pw-sheet-form { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-6); }
 .pw-sheet h2 { margin: 0; }
 .pw-sheet-body { display: flex; flex-direction: column; gap: var(--space-3); overflow-wrap: anywhere; }
-.pw-sheet ul { margin: 0; padding-left: var(--space-4); }
+/* What a command does, in the order the engine does it, numbered in boxes like tower positions. */
+.pw-steps { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.pw-steps li { display: flex; align-items: flex-start; gap: var(--space-3); counter-increment: step; }
+.pw-steps li::before { content: counter(step); display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: var(--radius-sm); background: var(--border); color: var(--muted); font-size: 14px; font-weight: 600; font-stretch: 75%; }
+/* Sheets that stop trading carry the red flag along their top edge, square so it does not taper into the corners. */
+.pw-sheet:has(.pw-btn-danger) { border-top: 4px solid var(--flag-red); border-top-left-radius: 0; border-top-right-radius: 0; }
 .pw-sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
 
 .pw-login { display: grid; grid-template-rows: var(--banner-h) 1fr; min-height: 100dvh; }
-.pw-login-board { display: flex; flex-direction: column; gap: var(--space-4); width: calc(100% - 2 * var(--space-4)); max-width: 380px; margin: auto; padding: var(--space-6); background: var(--surface); border-radius: var(--radius-sm); }
+.pw-login-board { display: flex; flex-direction: column; gap: var(--space-4); width: calc(100% - 2 * var(--space-4)); max-width: 380px; margin: auto; padding: var(--space-6); background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-stack); }
 .pw-login-board h1 { margin: 0; }
+/* Sign-in is a pit board: the wordmark on one slat, the passcode on the next, asphalt between. */
+.pw-login-form { display: flex; flex-direction: column; gap: var(--space-1); width: calc(100% - 2 * var(--space-4)); max-width: 380px; margin: auto; }
+.pw-login-form .pw-login-board { width: auto; margin: 0; }
+.pw-login-mark { align-items: center; padding-block: var(--space-6); }
+.pw-login-mark .pw-wordmark { font-size: 32px; line-height: 36px; }
 
-.pw-is-stale .pw-stat-value, .pw-is-stale .pw-delta, .pw-is-stale .pw-table td, .pw-is-stale .pw-figures dd { color: var(--muted); }
+.pw-is-stale .pw-stat-value, .pw-is-stale .pw-delta, .pw-is-stale .pw-table td, .pw-is-stale .pw-figures dd, .pw-is-stale .pw-alloc-key .pw-figure { color: var(--muted); }
+
+/* Full screen is for a wall screen. It folds away where the gantry has no room for it: from 900px to 1099px, where the
+   tab names take its width, and below 600px. */
+.pw-fullscreen { max-width: 12rem; transition: transform 120ms ease-out, max-width 360ms cubic-bezier(.16, 1, .3, 1), padding 360ms cubic-bezier(.16, 1, .3, 1), margin-left 360ms cubic-bezier(.16, 1, .3, 1), opacity 240ms ease-out, visibility 360ms; }
+/* Columns only a wider screen shows fade out before they give up their space, and fade in after they take it. */
+.pw-table .pw-hide-phone { transition: color 300ms ease-out, filter 240ms ease-out, opacity 240ms ease-out, display 240ms allow-discrete; }
+@starting-style { .pw-table .pw-hide-phone { opacity: 0; } }
+/* What those columns held rides as a second line in the cell beside it, opening and closing with their fade. */
+.pw-fold { display: block; height: 16px; overflow: hidden; transition: height 240ms ease-out, opacity 240ms ease-out, display 240ms allow-discrete; }
+@starting-style { .pw-fold { height: 0; opacity: 0; } }
+@media (min-width: 900px) { .pw-fold { display: none; height: 0; opacity: 0; } }
 
 @media (max-width: 1099px) {
   .pw-ov { grid-template-columns: minmax(0, 1fr); grid-template-areas: "board" "tower" "screens" "events"; }
 }
+@media (max-width: 599px), (min-width: 900px) and (max-width: 1099px) {
+  .pw-fullscreen { max-width: 0; padding-inline: 0; margin-left: calc(-1 * var(--gap)); opacity: 0; visibility: hidden; }
+}
 
 @media (max-width: 899px) {
-  :root { --gutter: var(--space-4); }
-  .pw-nav, .pw-market-next, .pw-hide-phone { display: none; }
-  .pw-gantry { gap: var(--space-3); }
-  .pw-gantry .pw-wordmark { margin-right: auto; }
+  .pw-app { grid-template-rows: auto auto auto minmax(0, 1fr) calc(var(--tabbar-h) + env(safe-area-inset-bottom)); }
+  .pw-tabbar { visibility: visible; }
+  /* While it fades, the nav gives up its width before anything else, so Stop never leaves the edge. */
+  .pw-nav { display: none; flex-shrink: 10000; min-width: 0; overflow: hidden; opacity: 0; }
+  .pw-table .pw-hide-phone { display: none; opacity: 0; }
   .pw-track { flex-wrap: wrap; align-items: flex-start; }
   .pw-track-action { margin-left: 32px; }
-  .pw-main { padding-block: var(--space-4); }
   .pw-board-wrap, .pw-ov-screens { grid-template-columns: minmax(0, 1fr); }
-  .pw-trace-plot { min-height: 120px; }
+  .pw-readout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pw-event { grid-template-columns: auto auto minmax(0, 1fr); grid-template-areas: "time sev ." "msg msg msg" "src src src"; }
-  .pw-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); min-height: var(--tabbar-h); padding-right: env(safe-area-inset-right); padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); background: var(--surface); border-top: 1px solid var(--border); }
 }
-.pw-tab { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); color: var(--muted); text-decoration: none; }
+/* Where even the strip's width is not enough, the market chip folds its next change, then any label longer than Open.
+   Tapping the chip opens the whole line. Measured for the widest chip, Closed opens Mon 09:30 ET. */
+@media (max-width: 459px) {
+  .pw-market-next { max-width: 0; margin-left: calc(-1 * var(--space-2)); opacity: 0; visibility: hidden; }
+}
+@media (max-width: 359px) {
+  .pw-market:not(.pw-market-open) .pw-market-state { max-width: 0; margin-left: calc(-1 * var(--space-2)); opacity: 0; visibility: hidden; }
+}
+.pw-tab { position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); color: var(--muted); text-decoration: none; }
 .pw-tab:hover, .pw-tab[aria-current="page"] { color: var(--fg); }
-.pw-tab-pill { position: absolute; top: -1px; left: 25%; right: 25%; height: 3px; background: var(--accent); view-transition-name: tab-pill; }
+.pw-tab[aria-current="page"] .pw-icon { color: var(--surface); }
+/* The current tab's icon stands on a timing-white plate, sitting high so its 4px side clears the label below. */
+.pw-tab-pill { position: absolute; top: calc(50% - 25px); left: calc(50% - 22px); z-index: -1; width: 44px; height: 26px; background: var(--accent); box-shadow: var(--shadow-plate); transform: skewX(-20deg); view-transition-name: tab-pill; }
 
-/* Motion. Every animation reports something: a heartbeat, a pending command, a state change, a new event, a new screen. */
+@container (min-width: 720px) {
+  .pw-event { grid-template-columns: 72px 60px minmax(0, 1fr) auto; grid-template-areas: "time sev msg src"; }
+  .pw-event-src { max-width: 20rem; text-align: right; }
+}
+
+/* Panels draw their face on ::before; at rest it fills the panel. When the window moves a panel into another layout,
+   glide.ts slides the panel there and grows or shrinks the face to its new size through --glide-r and --glide-b,
+   clipping what the panel holds to the face. The face shows its 6px `shadow-stack` side, and the clip leaves room for it.
+   Readout cells each cast one too: a later cell covers the shadow of the one before, so the strip casts one shadow. */
+.pw-screen, .pw-tower, .pw-trace, .pw-slat { --glide-r: 0px; --glide-b: 0px; position: relative; isolation: isolate; border-radius: var(--radius-sm); }
+:is(.pw-screen, .pw-tower, .pw-trace, .pw-slat)::before { content: ""; position: absolute; inset: 0 var(--glide-r) var(--glide-b) 0; z-index: -1; border-radius: inherit; background: var(--surface); box-shadow: var(--shadow-stack); }
+.pw-screen, .pw-tower, [data-glide] { clip-path: inset(0 calc(var(--glide-r) - 6px) calc(var(--glide-b) - 6px) 0 round var(--radius-sm)); }
+
+/* Motion. Every animation reports something: a heartbeat, a pending command, a state change, an overtake, a new event, a new screen.
+   Nothing just appears: a screen builds like a broadcast graphic, and the page under it does not cross-fade. */
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 ::view-transition-group(nav-pill), ::view-transition-group(tab-pill) { animation-duration: 280ms; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
-::view-transition-old(content) { animation: pw-fade-out 90ms ease-out both; }
-::view-transition-new(content) { animation: pw-rise-in 240ms 60ms cubic-bezier(.16, 1, .3, 1) both; }
 @keyframes pw-fade-out { to { opacity: 0; } }
 @keyframes pw-fade-in { from { opacity: 0; } }
 @keyframes pw-rise-in { from { opacity: 0; transform: translateY(6px); } }
@@ -276,22 +450,87 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-state-enter { display: inline-block; animation: pw-state-in 280ms cubic-bezier(.16, 1, .3, 1) both; }
 @keyframes pw-state-in { from { opacity: 0; transform: scale(.8); } }
 
-.pw-event-new { position: relative; isolation: isolate; animation: pw-drop-in 240ms cubic-bezier(.16, 1, .3, 1) both; }
-.pw-event-new::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--surface-2); pointer-events: none; animation: pw-fade-out 1600ms cubic-bezier(.16, 1, .3, 1) both; }
+/* Outranks the row entrance below, so an event that arrives later drops in at once, without a row delay. */
+.pw-event.pw-event-new { animation: pw-drop-in 240ms cubic-bezier(.16, 1, .3, 1) both; }
+.pw-event-flash { position: absolute; inset: 0; z-index: -1; background: var(--border); pointer-events: none; animation: pw-fade-out 1600ms cubic-bezier(.16, 1, .3, 1) both; }
 @keyframes pw-drop-in { from { opacity: 0; transform: translateY(-4px); } }
+/* A table row that arrives while you watch drops in like an event. Its time, or a new position's symbol, stands on a
+   timing-white plate for 10s, then the plate fades and the text takes back its own colour. */
+.pw-table tr.pw-row-new { animation: pw-drop-in 240ms cubic-bezier(.16, 1, .3, 1) both; }
+.pw-fresh { position: relative; isolation: isolate; justify-self: start; animation: pw-fresh-ink 10.6s; }
+.pw-fresh::before { content: ""; position: absolute; inset: -2px -6px; z-index: -1; background: var(--fg); box-shadow: var(--shadow-plate); opacity: 0; transform: skewX(-20deg); animation: pw-fresh-plate 10.6s; }
+@keyframes pw-fresh-ink { 0%, 94% { color: var(--surface); } }
+@keyframes pw-fresh-plate { 0%, 94% { opacity: 1; } }
 
 .pw-table tr.pw-changed td { position: relative; isolation: isolate; }
 .pw-table tr.pw-changed td::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--border); pointer-events: none; animation: pw-fade-out 600ms ease-out both; }
 
 .pw-sheet { animation: pw-rise-in 200ms cubic-bezier(.16, 1, .3, 1) both; }
-.pw-stat-value, .pw-delta, .pw-table td, .pw-trace { transition: color 300ms ease-out; }
+.pw-sheet[data-leaving]::backdrop { animation: pw-fade-out 160ms ease-in forwards; }
+.pw-amount { transition: filter 240ms ease-out; }
+.pw-stat-value, .pw-delta, .pw-table td, .pw-trace { transition: color 300ms ease-out, filter 240ms ease-out; }
+.pw-trace-range, .pw-tab { transition: color 150ms ease-out; }
+
+/* Entrances. Each runs once, when its element arrives: on a new screen, a new range, a new row.
+   Panels wipe in behind a slanted edge in reading order (--enter), then their rows slide in one after another (--row),
+   figures rise into their slats, meters and bars fill from zero, and the trace draws across its span. */
+@keyframes pw-wipe { from { clip-path: polygon(0 0, 0 0, -24px 100%, -24px 100%, 0 0); } to { clip-path: polygon(0 0, calc(100% + 6px) 0, calc(100% + 6px) calc(100% + 6px), 0 calc(100% + 6px), 0 0); } }
+@keyframes pw-slide-in { from { opacity: 0; translate: -12px 0; } }
+@keyframes pw-fill { from { transform: scaleX(0); } }
+@keyframes pw-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+@keyframes pw-raise { from { scale: 1 0; } }
+
+.pw-ov-board .pw-slat:nth-child(2) { --enter: 60ms; }
+.pw-ov-board .pw-slat:nth-child(3) { --enter: 120ms; }
+.pw-ov-board .pw-trace { --enter: 90ms; }
+.pw-ov-positions { --enter: 160ms; }
+.pw-ov-screens > :nth-child(2) { --enter: 220ms; }
+.pw-ov-account { --enter: 280ms; }
+.pw-ov-events { --enter: 340ms; }
+:is(.pw-readout, .pw-login-form) > :nth-child(2) { --enter: 50ms; }
+.pw-readout > :nth-child(3) { --enter: 100ms; }
+.pw-readout > :nth-child(4) { --enter: 150ms; }
+.pw-page > :nth-child(2) { --enter: 160ms; }
+.pw-page > :nth-child(n+3) { --enter: 240ms; }
+:is(.pw-tower-row, .pw-table tbody tr, .pw-event, .pw-figures-row, .pw-meter, .pw-system > div):nth-child(2) { --row: 1; }
+:is(.pw-tower-row, .pw-table tbody tr, .pw-event, .pw-figures-row, .pw-meter, .pw-system > div):nth-child(3) { --row: 2; }
+:is(.pw-tower-row, .pw-table tbody tr, .pw-event, .pw-figures-row, .pw-meter, .pw-system > div):nth-child(4) { --row: 3; }
+:is(.pw-tower-row, .pw-table tbody tr, .pw-event, .pw-figures-row, .pw-meter, .pw-system > div):nth-child(5) { --row: 4; }
+:is(.pw-tower-row, .pw-table tbody tr, .pw-event, .pw-figures-row, .pw-meter, .pw-system > div):nth-child(6) { --row: 5; }
+:is(.pw-tower-row, .pw-table tbody tr, .pw-event, .pw-figures-row, .pw-meter, .pw-system > div):nth-child(n+7) { --row: 6; }
+
+.pw-screen, .pw-tower, .pw-trace, .pw-slat, .pw-login-board { animation: pw-wipe 460ms cubic-bezier(.16, 1, .3, 1) var(--enter, 0ms) backwards; }
+.pw-alloc-bar { animation: pw-wipe 600ms cubic-bezier(.16, 1, .3, 1) calc(var(--enter, 0ms) + 200ms) backwards; }
+.pw-slat :is(.pw-hero, .pw-board) { animation: pw-rise-in 400ms cubic-bezier(.16, 1, .3, 1) calc(var(--enter, 0ms) + 140ms) backwards; }
+:is(.pw-tower-row, .pw-table tbody tr, .pw-event, .pw-figures-row, .pw-meter, .pw-system > div) { animation: pw-slide-in 360ms cubic-bezier(.16, 1, .3, 1) calc(var(--enter, 0ms) + 160ms + var(--row, 0) * 40ms) backwards; }
+.pw-meter-fill, .pw-pl-bar::after { animation: pw-fill 600ms cubic-bezier(.16, 1, .3, 1) calc(var(--enter, 0ms) + 260ms + var(--row, 0) * 40ms) backwards; }
+@keyframes pw-vline-in { from { left: var(--from); opacity: 0; } }
+@keyframes pw-vline-out { from { left: var(--from); } to { opacity: 0; } }
+.pw-trace-vline { animation: pw-vline-in 600ms cubic-bezier(.33, 1, .68, 1) backwards; }
+.pw-trace-vline-out { animation: pw-vline-out 600ms cubic-bezier(.33, 1, .68, 1) forwards; }
+.pw-trace-stroke { animation: pw-draw 800ms cubic-bezier(.33, 1, .68, 1) calc(var(--enter, 0ms) + 200ms) backwards; }
+.pw-trace-now, .pw-trace-high, .pw-trace-low, .pw-trace-tag { animation: pw-fade-in 240ms ease-out calc(var(--enter, 0ms) + 900ms) backwards; }
+.pw-trace-flag { transform-origin: bottom; animation: pw-raise 280ms cubic-bezier(.16, 1, .3, 1) calc(var(--enter, 0ms) + 700ms) backwards; }
+.pw-trace-empty .pw-label, .pw-empty, .pw-waiting, .pw-help-error, .pw-market-state { animation: pw-fade-in 240ms ease-out backwards; }
+.pw-track .pw-flag { animation: pw-rise-in 360ms cubic-bezier(.16, 1, .3, 1) backwards; }
 
 @media (prefers-reduced-motion: reduce) {
   .pw-sheet, .pw-state-enter { animation-name: pw-fade-in; }
+  /* Entrances keep their order and timing but only fade: nothing wipes, slides, rises, fills or draws. */
+  .pw-screen, .pw-tower, .pw-trace, .pw-slat, .pw-login-board, .pw-alloc-bar, .pw-slat :is(.pw-hero, .pw-board), .pw-track .pw-flag,
+  :is(.pw-tower-row, .pw-table tbody tr, .pw-event, .pw-figures-row, .pw-meter, .pw-system > div), .pw-trace-stroke, .pw-trace-flag { animation-name: pw-fade-in; }
+  .pw-meter-fill, .pw-pl-bar::after { animation: none; }
   .pw-pulse-ring { animation-name: pw-glow; }
-  .pw-event-new { animation: none; }
-  .pw-btn { transition-property: background-color, border-color; }
+  .pw-event.pw-event-new, .pw-table tr.pw-row-new { animation: none; }
+  .pw-trace-vline { animation-name: pw-fade-in; }
+  .pw-trace-vline-out { animation-name: pw-fade-out; }
   .pw-btn:active:not(:disabled), .pw-btn.pw-holding { transform: none; }
-  .pw-btn .pw-hold, .pw-switch::after { transition: none; }
+  .pw-btn::before { transition-property: background-color; }
+  .pw-btn .pw-hold, .pw-switch::after, .pw-meter-fill, .pw-trace-vline, .pw-app { transition: none; }
+  /* Things that fold away at a breakpoint only fade. */
+  .pw-market-state, .pw-market-next { transition-property: opacity, visibility; }
+  .pw-popover { --pop-y: 0px; }
+  .pw-fold { transition-property: opacity, display; }
+  .pw-fullscreen { transition-property: opacity, visibility; }
 }
 @keyframes pw-glow { from { opacity: .5; } to { opacity: 0; } }

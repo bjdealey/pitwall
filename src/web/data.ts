@@ -1,5 +1,5 @@
 import { startTransition, useActionState, useEffect, useEffectEvent, useState } from 'react';
-import type { Command, Snapshot } from '../shared/domain.ts';
+import type { Command, DailyEquity, Snapshot } from '../shared/domain.ts';
 
 /** Built with VITE_DEMO=1 for GitHub Pages: sample data and a simulated engine in the browser, no API. */
 export const DEMO = import.meta.env.VITE_DEMO === '1';
@@ -56,6 +56,38 @@ export function useSnapshot(onSignedOut: () => void): Feed | null {
     };
   }, []);
   return feed;
+}
+
+export type DailyHistory = { kind: 'loading' } | { kind: 'ready'; days: DailyEquity[] } | { kind: 'failed' };
+
+// One request per ET date: closes before today do not change, and a failed request leaves no entry so the next ask retries.
+const dailyRequests = new Map<string, Promise<DailyEquity[]>>();
+const loadDaily = (today: string) => {
+  let request = dailyRequests.get(today);
+  if (!request) {
+    request = DEMO
+      ? import('./demo-feed.ts').then((demo) => demo.dailyDemo())
+      : fetch('/api/equity/daily').then((r) => (r.ok ? (r.json() as Promise<DailyEquity[]>) : Promise.reject(new Error(`daily equity ${r.status}`))));
+    dailyRequests.set(today, request);
+    request.catch(() => dailyRequests.delete(today));
+  }
+  return request;
+};
+
+/** Daily closing equity for the trace's longer ranges. ask changes on every range pick, so a failed load retries. */
+export function useDailyHistory(today: string, ask: unknown): DailyHistory {
+  const [history, setHistory] = useState<DailyHistory>({ kind: 'loading' });
+  useEffect(() => {
+    let current = true;
+    loadDaily(today).then(
+      (days) => current && setHistory({ kind: 'ready', days }),
+      () => current && setHistory({ kind: 'failed' }),
+    );
+    return () => {
+      current = false;
+    };
+  }, [today, ask]);
+  return history;
 }
 
 export function useNow(): number {

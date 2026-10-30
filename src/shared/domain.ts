@@ -24,6 +24,8 @@ export type Order = { id: string; strategyId: StrategyId | null; symbol: string;
 export type LimitId = 'daily-loss' | 'rejections' | 'broker-silence';
 export type Limit = { id: LimitId; label: string; used: number; max: number; detail: string; breached: boolean };
 export type Health = { brokerConnected: boolean; cpuTempC: number | null; throttled: boolean | null; diskUsedPct: number | null; memUsedBytes: number; memTotalBytes: number; uptimeS: number };
+/** The account's closing equity on one ET date (YYYY-MM-DD); today's row is the latest reading so far. */
+export type DailyEquity = { date: string; equity: number };
 export type EventRecord = { id: number; at: string; severity: Severity; message: string; source: string };
 
 export type Snapshot = {
