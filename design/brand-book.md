@@ -50,8 +50,7 @@ There are two themes. **Timing screen** (dark, the default) is an LED gantry at 
 - **Direction.** `pos` for gains and RUNNING, `neg` for losses and errors. On the timing screen the gain green is 2.6× lighter than the loss red, so the pair holds without hue. Every figure in either colour carries its sign and ▲ or ▼.
 - **Flags.** `flag-yellow` and `flag-red` fill the track band, with `on-flag` and `on-flag-red` text. `flag-green` is only ever the flag icon on a calm band. `flag-red` also fills Hold to flatten and the HALTED chip.
 - **Sector purple.** `best` marks the day's equity high on the board and trace, and the leading strategy's gain in the tower. Never anything else.
-- **Stripes.** A 3px stripe down the left edge of a tower row or event row carries its state, like a team colour on a timing tower: `pos` RUNNING, `warn` PAUSED and WARN, `neg` ERROR, `flag-red` HALTED and HALT. INFO rows have none.
-- **Matrix.** `matrix` is the dot grid behind the lit slats: timing white at 9% on the timing screen, clear on the sheet. It is light, not colour, and never carries meaning.
+- **State marks.** A 3px mark in the state's colour stands beside what it describes, never as a stripe down a row's edge. A tower row has a bar beside its position box, where a timing tower puts the team colour. An event has a 3px by 12px mark before its severity, the same mark as its flag on the trace. `pos` RUNNING, `warn` PAUSED and WARN, `neg` ERROR, `flag-red` HALTED and HALT. INFO has none.
 - **Mode.** `paper` with `on-paper`, and `live` with `on-live`, belong to the mode strip alone.
 - **Navigation and focus.** `accent` equals `fg` on purpose: the active nav bar and the focus outline are timing white (ink on the sheet).
 
@@ -78,7 +77,7 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
 
 **Overview** has two columns:
 
-- **Left: the timing tower** (`tower-w`, black). It ranks strategies by today's P&L, leader first. Each row shows its position in a 32px box (the leader's inverted to timing white), ID, gain and switch, then a meta line: status value, symbol, fills today. A state stripe runs down its left edge. A halted row adds its reason and, under it, labelled figures: when it halted and each limit breached now, so the cause reads as numbers, not just a sentence. At the foot of the tower are Pause all and Hold to flatten, and the system readout: engine heartbeat, broker, CPU, disk, memory and uptime. CPU, disk and memory carry a 10-segment strip under the figure, like the limit meters. When the window is at least 720px tall the tower stays in view while the right column scrolls, so the controls never leave the screen.
+- **Left: the timing tower** (`tower-w`, black). It ranks strategies by today's P&L, leader first. Each row shows its position in a 32px box (the leader's inverted to timing white), ID, gain and switch, then a meta line: status value, symbol, fills today. A state bar stands beside its position box. A halted row adds its reason and, under it, labelled figures: when it halted and each limit breached now, so the cause reads as numbers, not just a sentence. At the foot of the tower are Pause all and Hold to flatten, and the system readout: engine heartbeat, broker, CPU, disk, memory and uptime. CPU, disk and memory carry a 10-segment strip under the figure, like the limit meters. When the window is at least 720px tall the tower stays in view while the right column scrolls, so the controls never leave the screen.
 - **Right, top: the pit board.** Three slats with asphalt between them:
   - equity in `hero`
   - today's change in `board`
@@ -94,7 +93,7 @@ Limit meters are a strip of 20 segments, like the rev lights on a wheel. Any use
 
 Account opens with the allocation: one strip split by market value, each open position a segment lit in `control` like a meter's fill, largest first, then cash unlit in `border`, with 2px of asphalt between segments. A key under it gives each symbol and cash its percent of the whole. It shows at a glance how much of the account the strategies have put to work, and where.
 
-**Positions, Orders & fills and Strategies** open with a readout: equal slats with asphalt between them, a `small` label over a figure in `board` that shrinks to fit its slat. Then the screen's table or tower at the full width of the page. Orders & fills offers today's orders as a CSV beside its title, one row per order, newest first, with UTC times and formulas defused for spreadsheets. Strategies shows the tower wide, one line per strategy, under column headings like a standings table: Pos, Strategy, State, Today. Events lists each day at full width, with the source in its own column on the right, only as wide as its text, so messages keep the room and stay on one line down to 720px.
+**Positions, Orders & fills and Strategies** open with a readout: one strip of equal cells ruled apart by hairlines, like the columns of a timing screen, each a `small` label over a figure in `board` that shrinks to fit its cell. A count of zero reads `muted`, so the eye goes to what is happening. Then the screen's table or tower at the full width of the page. Orders & fills offers today's orders as a CSV beside its title, one row per order, newest first, with UTC times and formulas defused for spreadsheets. Strategies shows the tower wide, one line per strategy, under column headings like a standings table: Pos, Strategy, State, Today. Events lists each day at full width, with the source in its own column on the right, only as wide as its text, so messages keep the room and stay on one line down to 720px.
 
 Table headers sit on a `surface-2` band. Beside each position's P&L % a small bar shows it against the widest in the table, right of a zero line for a gain and left for a loss, in the figure's colour. Order statuses that need a look (open in `warn`, REJECTED in `neg`) sit in a chip: a 1px border in the status colour over its `-soft` tint.
 
@@ -104,7 +103,7 @@ Table headers sit on a `surface-2` band. Beside each position's P&L % a small ba
 
 - The tabs move to a bottom tab bar (`tabbar-h`).
 - Positions, Limits and Account stack in one column.
-- Readouts show two slats a row.
+- Readouts show two cells a row.
 - Table columns draw closer as the window narrows, from 32px apart at 900px to 16px at 560px and 8px at 360px, with the outer edges still on the screen's 16px, so Orders & fills fits a 375px phone without scrolling sideways. Secondary columns fold into the cell beside them as a second `small` line: on Positions, the average price under Last ("avg $571.20", `muted`) and P&L % under P&L in its tone; on Orders & fills, the strategy (or "manual", `muted`) under the symbol, and what filled under the status ("12 at $571.20"). The P&L bar is the one thing a phone drops; its figure stays. A table that is still too wide, at 320px or with a long strategy ID, scrolls sideways rather than cut anything.
 
 **Nothing is lost to a narrow window.** What has no room folds into something nearby, or behind a tap, and says where it went. Nothing is cut off with an ellipsis or dropped outright. Ornament gives way first, then secondary detail, and Stop never does.
@@ -118,7 +117,7 @@ The side gutter grows with the window, from 16px at 560px wide to 24px from 900p
 
 Screens are hardware, nearly square: `radius-sm` (2px) for screens, chips and inputs, `radius-md` (4px) for buttons and dialogs, `radius-full` for status lights only. Switches are hardware toggles, `radius-sm` with a square knob: off, a `muted` knob on `surface-2`; on, a `pos` knob on `pos-soft` inside a `pos` edge. Every panel keeps four plain corners, and none clips what sits inside it: labels, flags and focus rings show whole. There are no shadows on the page. Depth is a hairline bezel and asphalt showing between black screens. Only dialogs lift, with `shadow-sheet` over `scrim`.
 
-**Light.** On the timing screen, lit things glow like LEDs: figures in `pos`, `neg` and `best`, the equity hero and the trace line carry `glow`, a soft bloom in their own colour. The hero slat and each readout's slats are lit boards, with a 5px dot grid in `matrix` behind the figures. On the timing sheet both are off, because paper does not light up. Light never carries meaning on its own; it only follows a figure that already does. A dialog that stops trading (Pause all, Flatten) carries a 4px `flag-red` top edge with square top corners, and lists its effects as numbered steps in boxes like tower positions.
+**Flat.** Figures are flat and crisp, like broadcast timing graphics, on both themes: no glow, bloom, dot grid or other texture behind or around them. Colour carries the meaning, and nothing decorates a figure that already has it. A dialog that stops trading (Pause all, Flatten) carries a 4px `flag-red` top edge with square top corners, and lists its effects as numbered steps in boxes like tower positions.
 
 Sign-in is a pit board too: the wordmark at 32px on one slat, the passcode and Sign in on the next, asphalt between.
 

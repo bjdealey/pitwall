@@ -28,8 +28,6 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-warn { color: var(--warn); }
 .pw-flat { color: var(--muted); }
 .pw-best { color: var(--best); }
-/* Lit figures bloom like LEDs on the timing screen; `glow` is nothing on the sheet. */
-.pw-up, .pw-down, .pw-best, .pw-hero { text-shadow: var(--glow); }
 
 /* Mode strip: paper or real money, above everything. */
 .pw-mode { display: flex; align-items: center; justify-content: center; height: var(--banner-h); padding: 0 var(--space-4); }
@@ -130,8 +128,6 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-slats { display: flex; flex-direction: column; gap: var(--space-1); container-type: inline-size; }
 .pw-slat { display: flex; flex-direction: column; justify-content: center; gap: var(--space-1); padding: var(--space-3) var(--space-4); }
 .pw-slat-hero { flex: 1; padding: var(--space-4); }
-/* The lead slats are lit like an LED board: a dot grid in `matrix`, clear on the printed sheet. */
-:is(.pw-slat-hero, .pw-readout .pw-slat)::before { background-image: radial-gradient(var(--matrix) 1px, transparent 1.2px); background-size: 5px 5px; }
 .pw-slat-label { color: var(--muted); }
 .pw-slat-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 /* Privacy mode: the eye sits at the end of a slat's label and its tap target reaches 44px. Money and quantities blur in place, so nothing shifts. */
@@ -167,7 +163,7 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-trace-range[aria-pressed="true"] { border-color: var(--border); background: var(--surface-2); color: var(--fg); }
 .pw-trace-empty .pw-trace-ranges { justify-content: center; }
 .pw-trace-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.pw-trace-line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(var(--glow)); }
+.pw-trace-line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .pw-trace-grid { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
 /* Vertical lines are spans, not SVG, so a line both ranges share can slide to its new place, eased like the line's morph. */
 .pw-trace-vline { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); pointer-events: none; transition: left 600ms cubic-bezier(.33, 1, .68, 1); }
@@ -191,8 +187,10 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-is-stale .pw-trace { color: var(--muted); }
 
 /* Readout: the figures a screen is about, on equal slats above its table. */
-.pw-readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-1); margin: 0; }
-.pw-readout .pw-slat { min-width: 0; padding: var(--gap); container-type: inline-size; }
+/* One strip of cells ruled apart, like the columns of a timing screen, not a row of separate cards. Each cell overlaps
+   the one before it and the one above it by its 1px edge, so every rule is single. */
+.pw-readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); padding: 1px 0 0 1px; margin: 0; }
+.pw-readout .pw-slat { min-width: 0; margin: -1px 0 0 -1px; padding: var(--gap); border-radius: 0; container-type: inline-size; }
 .pw-readout dd { margin: 0; font-size: min(36px, 100cqi / (var(--chars, 6) * .5)); white-space: nowrap; }
 
 /* Timing tower: strategies ranked by today's P&L. */
@@ -203,13 +201,13 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-tower-row { position: relative; isolation: isolate; display: grid; background: var(--surface); grid-template-columns: 32px minmax(0, 1fr) auto auto; grid-template-areas: "pos id gap switch" ". meta meta switch" ". reason reason reason"; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
 .pw-tower-row:nth-child(even) { background: var(--surface-2); }
 .pw-tower-row:last-child { border-bottom: 0; }
-/* The state stripe, like a team colour down the side of a timing tower row. */
-.pw-tower-row::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: var(--stripe, transparent); }
+/* The state bar beside the position, where a timing tower puts the team colour. */
+.pw-tower-pos::after { content: ""; position: absolute; top: 2px; bottom: 2px; left: calc(100% + 4px); width: 3px; background: var(--stripe, transparent); }
 .pw-state-running { --stripe: var(--pos); }
 .pw-state-paused { --stripe: var(--warn); }
 .pw-state-halted { --stripe: var(--flag-red); }
 /* Positions and gaps in heavy timing type, the tower's loudest figures. */
-.pw-tower-pos { grid-area: pos; display: grid; place-items: center; height: 28px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); font-size: 21px; font-weight: 800; }
+.pw-tower-pos { position: relative; grid-area: pos; display: grid; place-items: center; height: 28px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); font-size: 21px; font-weight: 800; }
 .pw-tower-row:first-child .pw-tower-pos { border-color: var(--fg); background: var(--fg); color: var(--surface); }
 .pw-tower-id { grid-area: id; overflow-wrap: anywhere; }
 /* The gain shrinks with the tower to `timing` size on a 320px phone, so the strategy ID keeps one line. */
@@ -318,14 +316,15 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-status.pw-sev-warn { border-color: currentColor; background: var(--warn-soft); }
 
 .pw-events { margin: 0; padding: 0; list-style: none; }
-.pw-event { position: relative; isolation: isolate; display: grid; grid-template-columns: 72px 52px minmax(0, 1fr); grid-template-areas: "time sev msg" ". . src"; align-items: baseline; gap: 2px var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); content-visibility: auto; contain-intrinsic-size: auto 72px; }
+.pw-event { position: relative; isolation: isolate; display: grid; grid-template-columns: 72px 60px minmax(0, 1fr); grid-template-areas: "time sev msg" ". . src"; align-items: baseline; gap: 2px var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); content-visibility: auto; contain-intrinsic-size: auto 72px; }
 .pw-event:last-child { border-bottom: 0; }
-.pw-event::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: var(--stripe, transparent); }
 .pw-event-warn { --stripe: var(--warn); }
 .pw-event-error { --stripe: var(--neg); }
 .pw-event-halt { --stripe: var(--flag-red); }
 .pw-event-time { grid-area: time; color: var(--muted); }
-.pw-event-sev { grid-area: sev; font-weight: 700; letter-spacing: .04em; }
+.pw-event-sev { grid-area: sev; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+/* The same 3px by 12px mark as the event's flag on the trace. INFO has none but keeps the space, so the words align. */
+.pw-event-sev::before { content: ""; display: inline-block; width: 3px; height: 12px; margin-right: 6px; vertical-align: -2px; background: var(--stripe, transparent); }
 .pw-event-msg { grid-area: msg; min-width: 0; overflow-wrap: anywhere; }
 .pw-event-src { grid-area: src; color: var(--muted); }
 
@@ -405,7 +404,7 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-tab-pill { position: absolute; top: -1px; left: 25%; right: 25%; height: 3px; background: var(--accent); view-transition-name: tab-pill; }
 
 @container (min-width: 720px) {
-  .pw-event { grid-template-columns: 72px 52px minmax(0, 1fr) auto; grid-template-areas: "time sev msg src"; }
+  .pw-event { grid-template-columns: 72px 60px minmax(0, 1fr) auto; grid-template-areas: "time sev msg src"; }
   .pw-event-src { max-width: 20rem; text-align: right; }
 }
 

@@ -191,7 +191,7 @@ export function Readout({ cells }: { cells: Reading[] }) {
             {c.label}
             {i === 0 && <PrivacyToggle />}
           </dt>
-          <dd className={`pw-board pw-stat-value ${c.className ?? ''}`} style={{ '--chars': c.value.length } as CSSProperties}>
+          <dd className={`pw-board pw-stat-value ${c.value === '0' ? 'pw-muted' : (c.className ?? '')}`} style={{ '--chars': c.value.length } as CSSProperties}>
             {c.value}
           </dd>
         </div>
@@ -614,7 +614,7 @@ function EquityTrace({ model, empty, stale, children }: { model: TraceModel | nu
                 </span>
                 {worst && (
                   <span className="pw-trace-readout-event pw-small">
-                    <span className={`pw-event-sev pw-sev-${worst.severity}`}>{SEVERITY_WORD[worst.severity]}</span>
+                    <span className={`pw-event-sev pw-event-${worst.severity} pw-sev-${worst.severity}`}>{SEVERITY_WORD[worst.severity]}</span>
                     <span className="pw-trace-readout-msg">{worst.message}</span>
                     {here.length > 1 && <span className="pw-muted">and {here.length - 1} more</span>}
                   </span>

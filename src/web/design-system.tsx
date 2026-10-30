@@ -279,9 +279,9 @@ Source: \`Shell\` in \`src/web/main.tsx\`.`,
 **Provide:** the account (equity and previous close), today's equity samples, the event log, and whether the feed is stale. The board fetches daily closes itself when a longer range is picked.
 
 **Use:**
-- Slat one is equity in \`hero\`, on a lit board: a 5px dot grid in \`matrix\` behind it, and \`glow\` around the figure, on the timing screen only. Slat two is today's change in \`board\` with its percent and ▲ or ▼. Slat three pairs the previous close with the day high.
+- Slat one is equity in \`hero\`, flat on \`surface\`. Slat two is today's change in \`board\` with its percent and ▲ or ▼. Slat three pairs the previous close with the day high.
 - The day high and its dot on the trace are \`best\` (sector purple) only when above the previous close. On the trace the high carries its figure and ET time above its dot, and the day low, only when below the previous close, carries them below its \`muted\` dot. Labels near either end hang inward.
-- The trace is a single line in \`pos\` or \`neg\` by today's direction against the previous close, a dashed \`control\` line. No area fill or gradient; on the timing screen the line carries \`glow\`. Times along the axis are ET.
+- The trace is a single line in \`pos\` or \`neg\` by today's direction against the previous close, a dashed \`control\` line. No area fill, gradient or glow. Times along the axis are ET.
 - The axis spans the regular session, 09:30 to 16:00 ET, with a faint line each hour, and widens only if samples fall outside it. The empty part is the time left. A dot marks the latest sample.
 - Point at the trace, or focus it and use the arrow keys, Home and End, to scrub it. A dashed \`muted\` cursor snaps to the nearest sample and a readout at the top gives its ET time, equity and change on the day, stopping at the plot's edges. The high and low labels step aside while it shows. Pointer leave, Escape or blur clears it. The plot is a slider whose value text is the readout.
 - Warnings, errors and halts in the session stand on the axis rule, under the plot, as 3px flags in the event log's stripe colours, so nothing on the plot covers one. Flags closer than 1.5% of the width merge into the worst. Scrubbing to a flag's sample adds the worst one's severity and whole message to the readout, wrapping where the plot is narrow, with a count of the rest.
@@ -314,7 +314,7 @@ Source: \`PitBoard\` in \`src/web/components.tsx\`.`,
 **Use:**
 - The heading is \`heading\` after a slanted tab, like a Screen's.
 - Rows show the position in a 32px box, the strategy ID in \`timing\`, today's gain or loss and a switch. Position and gain are \`timing\` stepped up to 21px and heavier, the tower's loudest figures. The gain shrinks with the tower, to 16px at a 288px tower, so the ID keeps one line. The leader's box is inverted to timing white. The leader's gain is \`best\` when it is up and there is more than one strategy.
-- A 3px stripe down the row's left edge carries its state: \`pos\`, \`warn\` or \`flag-red\`.
+- A 3px bar beside the position box carries its state, where a timing tower puts the team colour: \`pos\`, \`warn\` or \`flag-red\`. Never a stripe down the row's edge.
 - The meta line shows a status value in capitals (RUNNING in \`pos\`, PAUSED in \`warn\`, HALTED as a \`flag-red\` chip), the symbol and fills today. The status value is as wide as RUNNING, so a state change never nudges the symbol after it. A halted row adds the reason verbatim, then labelled figures: Halted at, and each breached limit with its detail. Pass \`limits\` for those.
 - The switch is on only while running. Turning it off pauses that strategy at once; turning it on asks first in a ConfirmSheet that names the strategy. The switch is a square hardware toggle: a \`pos\` knob on \`pos-soft\` when on. The knob pulses while the engine applies the command.
 - A row flashes its state colour once when its state changes. When the ranking changes, rows slide to their new places (480ms); reduced motion swaps them at once.
@@ -471,15 +471,15 @@ Source: \`Allocation\` in \`src/web/components.tsx\`.`,
         />
       </div>
     ),
-    readme: `The figures a screen is about, on pit-board slats above its table.
+    readme: `The figures a screen is about, in one ruled strip above its table.
 
 **Provide:** cells of a label and a figure already formatted as text, with an optional class for its colour. Add \`pw-amount\` to money, so privacy mode blurs it.
 
 **Use:**
-- Positions, Orders & fills and Strategies open with one. Equal slats with asphalt between them, a \`small\` \`muted\` label over a figure in \`board\`. On the timing screen the slats are lit boards, with a 5px dot grid in \`matrix\`, and coloured figures carry \`glow\`.
-- The figure shrinks to fit its slat by its length, like the hero, so a long balance still fits two slats a row on a 320px phone.
+- Positions, Orders & fills and Strategies open with one: a single strip of equal cells ruled apart by hairlines, like the columns of a timing screen, not a row of separate cards. Each cell is a \`small\` \`muted\` label over a figure in \`board\`, flat, with no texture or glow. A count of zero reads \`muted\`.
+- The figure shrinks to fit its cell by its length, like the hero, so a long balance still fits two cells a row on a 320px phone.
 - Colour follows the figure: a gain or loss carries its sign and glyph in \`pos\` or \`neg\`; a count of paused strategies is \`warn\` and of halted ones or rejected orders \`neg\`, but only above zero.
-- Below 900px it shows two slats a row.
+- Below 900px it shows two cells a row.
 - The first slat carries the privacy eye. Pressed, it blurs every figure marked \`pw-amount\` across the app until pressed again, on this device.
 
 **Don't:**
@@ -585,7 +585,7 @@ Source: \`SignedMoney\` in \`src/web/components.tsx\`; formats in \`src/shared/f
 **Use:**
 - Time is local 24-hour in \`small\` \`muted\`. Severity is a status value: INFO \`muted\`, WARN \`warn\`, ERROR and HALT \`neg\`.
 - The message uses \`body\` and wraps; the source sits under it in \`muted\`, or in its own right-hand column, only as wide as its text, when the log is at least 720px wide. A folded row says how often: "broker, 3 times since 16:47:05".
-- WARN, ERROR and HALT rows carry a 3px stripe down the left edge in their colour.
+- WARN, ERROR and HALT carry a 3px by 12px mark in their colour before the severity, the same mark as their flag on the trace. INFO keeps the space, so the words align.
 - The full log groups rows under a Screen per day.
 - A new row drops in and its tint fades over 1.6s. A repeat folding into a row on screen tints it again without rebuilding or moving it: rows are keyed by the first event of their run.
 - Below 900px the time and severity sit above the message.

@@ -4,15 +4,6 @@
     "ignoreFiles": [],
     "ignoreValues": [
       {
-        "rule": "side-tab",
-        "value": "*",
-        "files": [
-          "src/web/pitwall.css"
-        ],
-        "createdAt": "2026-10-29T22:02:48.198Z",
-        "reason": "Claude's decision: 3px state stripes on tower rows and event rows encode RUNNING/PAUSED/HALTED and WARN/ERROR/HALT, the F1 timing-tower team-colour motif; documented in design/brand-book.md (Colour > Stripes) as part of the user's chosen 'push pit wall harder' direction"
-      },
-      {
         "rule": "border-accent-on-rounded",
         "value": "*",
         "files": [
