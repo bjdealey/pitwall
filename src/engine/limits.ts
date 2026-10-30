@@ -18,6 +18,7 @@ export function evaluateLimits({ account, consecutiveRejections, lastBrokerOkAt,
   ];
 }
 
-export const tradesLimit = (used: number, max: number): Limit => limit('trades', 'Daily trade limit', used, max, `${used} of ${max} entries today`);
+// Reaching the cap blocks entries only, and the dashboard lists a breached limit as a cause of a halt.
+export const tradesLimit = (used: number, max: number): Limit => ({ ...limit('trades', 'Daily trade limit', used, max, `${used} of ${max} entries today`), breached: false });
 
 export const breachReason = (l: Limit) => `${l.label} reached (${l.detail}).`;

@@ -39,9 +39,9 @@ test('broker silence counts seconds since the last good call', () => {
   assert.equal(quiet(30).detail, '30s of 30s since last reply');
 });
 
-test('the trade cap reads as a limit that fills at the max', () => {
-  assert.deepEqual(tradesLimit(3, 3), { id: 'trades', label: 'Daily trade limit', used: 3, max: 3, detail: '3 of 3 entries today', breached: true });
-  assert.equal(tradesLimit(2, 3).breached, false);
+test('the trade cap fills at the max and never reads as a breach', () => {
+  assert.deepEqual(tradesLimit(3, 3), { id: 'trades', label: 'Daily trade limit', used: 3, max: 3, detail: '3 of 3 entries today', breached: false });
+  assert.equal(tradesLimit(4, 3).breached, false);
   assert.equal(tradesLimit(0, 3).detail, '0 of 3 entries today');
 });
 
