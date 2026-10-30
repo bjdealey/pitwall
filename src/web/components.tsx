@@ -128,7 +128,7 @@ export function Screen({ title, aside, flush = false, className = '', id, childr
   return (
     <section id={id} className={`pw-screen ${className}`} aria-labelledby={titleId}>
       <header className="pw-screen-head">
-        <h2 id={titleId} className="pw-label pw-screen-title">
+        <h2 id={titleId} className="pw-heading pw-screen-title">
           {title}
         </h2>
         {aside}
@@ -697,7 +697,7 @@ export function TimingTower({ strategies, limits = [], footer }: { strategies: S
   return (
     <section className="pw-tower" aria-labelledby={titleId}>
       <header className="pw-tower-head">
-        <h2 id={titleId} className="pw-title">
+        <h2 id={titleId} className="pw-heading pw-screen-title">
           Strategies
         </h2>
         <span className="pw-small pw-muted">ranked by today’s P&amp;L</span>

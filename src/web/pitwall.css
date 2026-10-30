@@ -25,6 +25,8 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-warn { color: var(--warn); }
 .pw-flat { color: var(--muted); }
 .pw-best { color: var(--best); }
+/* Lit figures bloom like LEDs on the timing screen; `glow` is nothing on the sheet. */
+.pw-up, .pw-down, .pw-best, .pw-hero { text-shadow: var(--glow); }
 
 /* Mode strip: paper or real money, above everything. */
 .pw-mode { display: flex; align-items: center; justify-content: center; height: var(--banner-h); padding: 0 var(--space-4); }
@@ -55,6 +57,9 @@ button:disabled { cursor: default; opacity: .6; }
 
 /* Gantry header: wordmark, screens, market, Stop. */
 .pw-gantry { display: flex; align-items: center; gap: var(--space-4); height: var(--header-h); background: var(--surface); border-bottom: 1px solid var(--border); }
+/* A strip of chequered flag after the wordmark, the gantry's one ornament. */
+.pw-gantry .pw-wordmark { display: inline-flex; align-items: center; gap: var(--space-3); }
+.pw-gantry .pw-wordmark::after { content: ""; width: 30px; height: 10px; background: conic-gradient(var(--fg) 90deg, transparent 0 180deg, var(--fg) 0 270deg, transparent 0) 0 0 / 10px 10px; }
 .pw-nav { display: flex; align-self: stretch; gap: var(--space-1); margin: 0 auto 0 var(--space-6); }
 .pw-nav-item { position: relative; display: flex; align-items: center; padding: 0 var(--space-3); color: var(--muted); text-decoration: none; transition: color 150ms ease-out; }
 .pw-nav-item:hover, .pw-nav-item[aria-current="page"] { color: var(--fg); }
@@ -109,6 +114,8 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-slats { display: flex; flex-direction: column; gap: var(--space-1); container-type: inline-size; }
 .pw-slat { display: flex; flex-direction: column; justify-content: center; gap: var(--space-1); padding: var(--space-3) var(--space-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .pw-slat-hero { flex: 1; padding: var(--space-4); }
+/* The lead slats are lit like an LED board: a dot grid in `matrix`, clear on the printed sheet. */
+.pw-slat-hero, .pw-readout .pw-slat { background-image: radial-gradient(var(--matrix) 1px, transparent 1.2px); background-size: 5px 5px; }
 .pw-slat-label { color: var(--muted); }
 .pw-slat-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 /* Privacy mode: the eye sits at the end of a slat's label and its tap target reaches 44px. Money and quantities blur in place, so nothing shifts. */
@@ -144,7 +151,7 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-trace-range[aria-pressed="true"] { border-color: var(--border); background: var(--surface-2); color: var(--fg); }
 .pw-trace-empty .pw-trace-ranges { justify-content: center; }
 .pw-trace-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.pw-trace-line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.pw-trace-line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(var(--glow)); }
 .pw-trace-grid { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .pw-trace-base { stroke: var(--control); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
 .pw-trace-legend { display: inline-flex; align-items: center; gap: var(--space-2); }
@@ -170,10 +177,10 @@ button:disabled { cursor: default; opacity: .6; }
 
 /* Timing tower: strategies ranked by today's P&L. */
 .pw-tower { overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); container-type: inline-size; }
-.pw-tower-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: var(--space-4); border-bottom: 1px solid var(--border); }
-.pw-tower-head h2 { margin: 0; }
+.pw-tower-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 52px; padding: 0 var(--space-4); border-bottom: 1px solid var(--border); }
+
 .pw-tower-list { margin: 0; padding: 0; list-style: none; }
-.pw-tower-row { position: relative; isolation: isolate; display: grid; background: var(--surface); grid-template-columns: 28px minmax(0, 1fr) auto auto; grid-template-areas: "pos id gap switch" ". meta meta switch" ". reason reason reason"; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
+.pw-tower-row { position: relative; isolation: isolate; display: grid; background: var(--surface); grid-template-columns: 32px minmax(0, 1fr) auto auto; grid-template-areas: "pos id gap switch" ". meta meta switch" ". reason reason reason"; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
 .pw-tower-row:nth-child(even) { background: var(--surface-2); }
 .pw-tower-row:last-child { border-bottom: 0; }
 /* The state stripe, like a team colour down the side of a timing tower row. */
@@ -181,10 +188,13 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-state-running { --stripe: var(--pos); }
 .pw-state-paused { --stripe: var(--warn); }
 .pw-state-halted { --stripe: var(--flag-red); }
-.pw-tower-pos { grid-area: pos; display: grid; place-items: center; height: 24px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); }
+/* Positions and gaps in heavy timing type, the tower's loudest figures. */
+.pw-tower-pos { grid-area: pos; display: grid; place-items: center; height: 28px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); font-size: 21px; font-weight: 800; }
 .pw-tower-row:first-child .pw-tower-pos { border-color: var(--fg); background: var(--fg); color: var(--surface); }
 .pw-tower-id { grid-area: id; overflow-wrap: anywhere; }
-.pw-tower-gap { grid-area: gap; text-align: right; }
+.pw-tower-gap { grid-area: gap; font-size: 21px; font-weight: 700; text-align: right; }
+/* On a 320px phone the gain falls back to `timing` size, so the strategy ID keeps one line. */
+@container (max-width: 299px) { .pw-tower-gap { font-size: 16px; } }
 .pw-tower-row > .pw-switch-hit { grid-area: switch; justify-self: end; }
 .pw-tower-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); color: var(--muted); }
 .pw-tower-reason { grid-area: reason; color: var(--fg); overflow-wrap: anywhere; }
@@ -200,7 +210,7 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-state-chip-halted { padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--flag-red); color: var(--on-flag-red); }
 /* A wide tower, as on Strategies, reads each strategy on one line. */
 @container (min-width: 640px) {
-  .pw-tower-row, .pw-tower-cols { grid-template-columns: 28px minmax(140px, 16rem) minmax(0, 1fr) minmax(7rem, auto) 44px; gap: var(--space-1) var(--space-4); }
+  .pw-tower-row, .pw-tower-cols { grid-template-columns: 32px minmax(140px, 16rem) minmax(0, 1fr) minmax(7rem, auto) 44px; gap: var(--space-1) var(--space-4); }
   .pw-tower-row { grid-template-areas: "pos id meta gap switch" ". reason reason reason reason"; }
   .pw-tower-cols { display: grid; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--control); color: var(--muted); }
   .pw-tower-cols > :first-child { text-align: center; }
@@ -232,8 +242,13 @@ button:disabled { cursor: default; opacity: .6; }
 
 /* Screens: the smaller monitors on the gantry. */
 .pw-screen { min-width: 0; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.pw-screen-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--tap-min); padding: 0 var(--space-4); border-bottom: 1px solid var(--border); }
-.pw-screen-title { margin: 0; font-weight: 700; }
+/* Screens, the tower and the trace have their top-left corner cut, like a broadcast graphic, and the bezel runs across the cut. */
+.pw-screen, .pw-tower, .pw-trace { --cut: 14px; position: relative; clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut)); }
+.pw-screen::before, .pw-tower::before, .pw-trace::before { content: ""; position: absolute; z-index: 2; top: var(--cut); left: 0; width: calc(var(--cut) * 1.4142); height: 1px; background: var(--border); transform-origin: 0 0; rotate: -45deg; pointer-events: none; }
+.pw-screen-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 52px; padding: 0 var(--space-4); border-bottom: 1px solid var(--border); }
+/* Titles read like a broadcast caption: `heading` type after a slanted tab in timing white. */
+.pw-screen-title { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; }
+.pw-screen-title::before { content: ""; flex: none; width: 5px; height: 16px; background: var(--fg); transform: skewX(-20deg); }
 .pw-screen-link { position: relative; color: var(--muted); text-decoration: none; }
 .pw-screen-link:hover { color: var(--fg); text-decoration: underline; }
 .pw-screen-body { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); }
@@ -351,8 +366,9 @@ button:disabled { cursor: default; opacity: .6; }
   .pw-event { grid-template-columns: auto auto minmax(0, 1fr); grid-template-areas: "time sev ." "msg msg msg" "src src src"; }
   .pw-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); min-height: var(--tabbar-h); padding-right: env(safe-area-inset-right); padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); background: var(--surface); border-top: 1px solid var(--border); }
 }
-/* The narrowest phones still fit the orders table without scrolling sideways. */
+/* The narrowest phones still fit the orders table without scrolling sideways, and the gantry drops the chequered strip to fit Stop. */
 @media (max-width: 359px) {
+  .pw-gantry .pw-wordmark::after { display: none; }
   .pw-table th:not(:first-child), .pw-table td:not(:first-child) { padding-left: var(--space-1); }
   .pw-table th:not(:last-child), .pw-table td:not(:last-child) { padding-right: var(--space-1); }
 }

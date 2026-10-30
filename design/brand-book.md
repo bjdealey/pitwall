@@ -51,6 +51,7 @@ There are two themes. **Timing screen** (dark, the default) is an LED gantry at 
 - **Flags.** `flag-yellow` and `flag-red` fill the track band, with `on-flag` and `on-flag-red` text. `flag-green` is only ever the flag icon on a calm band. `flag-red` also fills Hold to flatten and the HALTED chip.
 - **Sector purple.** `best` marks the day's equity high on the board and trace, and the leading strategy's gain in the tower. Never anything else.
 - **Stripes.** A 3px stripe down the left edge of a tower row or event row carries its state, like a team colour on a timing tower: `pos` RUNNING, `warn` PAUSED and WARN, `neg` ERROR, `flag-red` HALTED and HALT. INFO rows have none.
+- **Matrix.** `matrix` is the dot grid behind the lit slats: timing white at 9% on the timing screen, clear on the sheet. It is light, not colour, and never carries meaning.
 - **Mode.** `paper` with `on-paper`, and `live` with `on-live`, belong to the mode strip alone.
 - **Navigation and focus.** `accent` equals `fg` on purpose: the active nav bar and the focus outline are timing white (ink on the sheet).
 
@@ -58,9 +59,9 @@ There are two themes. **Timing screen** (dark, the default) is an LED gantry at 
 
 One variable family, **Archivo**, self-hosted from `@fontsource-variable/archivo` with its width axis. Its width carries the voice:
 
-- **Condensed (75%)** is timing type. `hero` (up to 72px) is the equity figure on the pit board; it scales with the slat and the figure's length, so a seven-figure balance still fits a 320px phone. `board` (36px) is today's change. `timing` (16px) is the tower and the nav.
+- **Condensed (75%)** is timing type. `hero` (up to 72px) is the equity figure on the pit board; it scales with the slat and the figure's length, so a seven-figure balance still fits a 320px phone. `board` (36px) is today's change. `heading` (21px, weight 800) titles every screen and the tower, like a broadcast caption, after a slanted tab in timing white (ink on the sheet), 5px by 16px and leaning 20°. `timing` (16px) is the tower and the nav; the tower's positions and gains step up to 21px in it, heavier, as the tower's loudest figures, and on a 320px phone the gain drops back to 16px so the strategy ID keeps one line.
 - **Normal width** is for sentences. `body` (16px) holds event messages and dialog copy. `label` (14px) is for buttons, field labels and screen titles. `small` (12px) holds times, symbols, sources and status values.
-- **Semi-condensed (87.5%).** `title` (21px) for the tower heading and dialogs, and `figure` (14px) for figures in lists and tables.
+- **Semi-condensed (87.5%).** `title` (21px) for dialogs, and `figure` (14px) for figures in lists and tables.
 - **Expanded (125%).** `wordmark` is the PITWALL wordmark, the one wide thing against all the condensed timing.
 
 Tabular figures are on everywhere, so columns line up without a monospace face. The scale follows the classic steps 12, 14, 16, 21, 36, 72.
@@ -76,7 +77,7 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
 
 **Overview** has two columns:
 
-- **Left: the timing tower** (`tower-w`, black). It ranks strategies by today's P&L, leader first. Each row shows its position in a box (the leader's inverted to timing white), ID, gain and switch, then a meta line: status value, symbol, fills today. A state stripe runs down its left edge. A halted row adds its reason and, under it, labelled figures: when it halted and each limit breached now, so the cause reads as numbers, not just a sentence. At the foot of the tower are Pause all and Hold to flatten, and the system readout: engine heartbeat, broker, CPU, disk, memory and uptime. CPU, disk and memory carry a 10-segment strip under the figure, like the limit meters. When the window is at least 720px tall the tower stays in view while the right column scrolls, so the controls never leave the screen.
+- **Left: the timing tower** (`tower-w`, black). It ranks strategies by today's P&L, leader first. Each row shows its position in a 32px box (the leader's inverted to timing white), ID, gain and switch, then a meta line: status value, symbol, fills today. A state stripe runs down its left edge. A halted row adds its reason and, under it, labelled figures: when it halted and each limit breached now, so the cause reads as numbers, not just a sentence. At the foot of the tower are Pause all and Hold to flatten, and the system readout: engine heartbeat, broker, CPU, disk, memory and uptime. CPU, disk and memory carry a 10-segment strip under the figure, like the limit meters. When the window is at least 720px tall the tower stays in view while the right column scrolls, so the controls never leave the screen.
 - **Right, top: the pit board.** Three slats with asphalt between them:
   - equity in `hero`
   - today's change in `board`
@@ -113,7 +114,9 @@ The side gutter is 24px on desktop and 16px below 900px, and never less than the
 
 ## Shape and depth
 
-Screens are hardware, nearly square: `radius-sm` (2px) for screens, chips and inputs, `radius-md` (4px) for buttons and dialogs, `radius-full` for status lights only. Switches are hardware toggles, `radius-sm` with a square knob: off, a `muted` knob on `surface-2`; on, a `pos` knob on `pos-soft` inside a `pos` edge. There are no shadows on the page. Depth is a hairline bezel and asphalt showing between black screens. Only dialogs lift, with `shadow-sheet` over `scrim`. A dialog that stops trading (Pause all, Flatten) carries a 4px `flag-red` top edge with square top corners, and lists its effects as numbered steps in boxes like tower positions.
+Screens are hardware, nearly square: `radius-sm` (2px) for screens, chips and inputs, `radius-md` (4px) for buttons and dialogs, `radius-full` for status lights only. Switches are hardware toggles, `radius-sm` with a square knob: off, a `muted` knob on `surface-2`; on, a `pos` knob on `pos-soft` inside a `pos` edge. Screens, the tower and the trace have their top-left corner cut by 14px, like a broadcast graphic, with the bezel carried across the cut. Slats, chips, buttons and dialogs keep all four corners. There are no shadows on the page. Depth is a hairline bezel and asphalt showing between black screens. Only dialogs lift, with `shadow-sheet` over `scrim`.
+
+**Light.** On the timing screen, lit things glow like LEDs: figures in `pos`, `neg` and `best`, the equity hero and the trace line carry `glow`, a soft bloom in their own colour. The hero slat and each readout's slats are lit boards, with a 5px dot grid in `matrix` behind the figures. On the timing sheet both are off, because paper does not light up. Light never carries meaning on its own; it only follows a figure that already does. A dialog that stops trading (Pause all, Flatten) carries a 4px `flag-red` top edge with square top corners, and lists its effects as numbered steps in boxes like tower positions.
 
 Sign-in is a pit board too: the wordmark at 32px on one slat, the passcode and Sign in on the next, asphalt between.
 
@@ -168,4 +171,4 @@ It is visual only. Screen readers, the event log's messages, the dialogs and the
 
 Lucide, from `lucide-react`, at 18px in `currentColor`, always beside a word. The tab bar uses `gauge`, `briefcase`, `arrow-left-right`, `layers` and `activity`. Stop uses `octagon-x`, Pause all uses `pause`, Full screen uses `maximize` or `minimize` while the page fills the screen. The privacy eye, `eye` or `eye-off` while amounts are hidden, is the one icon without a word beside it: it sits at the end of a slat's label, named and titled "Hide amounts", and its tap target reaches 44px. The flag icon in the track band is drawn in the app: a pole and a cloth, solid or chequered.
 
-There is no logo mark. The brand is the PITWALL wordmark in `wordmark` style. The home-screen icon is the letter P in Archivo 800, expanded like the wordmark, timing white on asphalt.
+There is no logo mark. The brand is the PITWALL wordmark in `wordmark` style. In the gantry a strip of chequered flag, two rows of 5px squares in timing white (ink on the sheet), follows it: the gantry's one ornament. Below 360px it gives way, so Stop still fits. The home-screen icon is the letter P in Archivo 800, expanded like the wordmark, timing white on asphalt.

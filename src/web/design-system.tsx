@@ -215,7 +215,7 @@ Source: \`MarketChip\` in \`src/web/components.tsx\`.`,
 **Provide:** the current route, the market session and a Stop handler that opens the Pause all sheet.
 
 **Use:**
-- The header is \`header-h\` tall on \`surface\`. The PITWALL wordmark is the \`wordmark\` style, expanded against the condensed tabs.
+- The header is \`header-h\` tall on \`surface\`. The PITWALL wordmark is the \`wordmark\` style, expanded against the condensed tabs, followed by a strip of chequered flag in \`fg\`, the gantry's one ornament.
 - Tabs use the \`timing\` style in \`muted\`. The current one is \`fg\` with a 3px \`accent\` bar that slides to the new tab.
 - Stop is on every screen and never moves.
 - The first Tab reaches a hidden "Skip to content" button that moves focus to the page.
@@ -274,9 +274,9 @@ Source: \`Shell\` in \`src/web/main.tsx\`.`,
 **Provide:** the account (equity and previous close), today's equity samples, the event log, and whether the feed is stale. The board fetches daily closes itself when a longer range is picked.
 
 **Use:**
-- Slat one is equity in \`hero\`. Slat two is today's change in \`board\` with its percent and ▲ or ▼. Slat three pairs the previous close with the day high.
+- Slat one is equity in \`hero\`, on a lit board: a 5px dot grid in \`matrix\` behind it, and \`glow\` around the figure, on the timing screen only. Slat two is today's change in \`board\` with its percent and ▲ or ▼. Slat three pairs the previous close with the day high.
 - The day high and its dot on the trace are \`best\` (sector purple) only when above the previous close. On the trace the high carries its figure and ET time above its dot, and the day low, only when below the previous close, carries them below its \`muted\` dot. Labels near either end hang inward.
-- The trace is a single line in \`pos\` or \`neg\` by today's direction against the previous close, a dashed \`control\` line. No area fill or gradient. Times along the axis are ET.
+- The trace is a single line in \`pos\` or \`neg\` by today's direction against the previous close, a dashed \`control\` line. No area fill or gradient; on the timing screen the line carries \`glow\`. The trace's top-left corner is cut like a Screen's. Times along the axis are ET.
 - The axis spans the regular session, 09:30 to 16:00 ET, with a faint line each hour, and widens only if samples fall outside it. The empty part is the time left. A dot marks the latest sample.
 - Point at the trace, or focus it and use the arrow keys, Home and End, to scrub it. A dashed \`muted\` cursor snaps to the nearest sample and a readout at the top gives its ET time, equity and change on the day, stopping at the plot's edges. The high and low labels step aside while it shows. Pointer leave, Escape or blur clears it. The plot is a slider whose value text is the readout.
 - Warnings, errors and halts in the session stand on the axis as 3px flags in the event log's stripe colours. Scrubbing to a flag's sample adds the worst one's severity and message to the readout, with a count of the rest. Flags draw over the high and low labels, so a label never hides a halt.
@@ -307,7 +307,8 @@ Source: \`PitBoard\` in \`src/web/components.tsx\`.`,
 **Provide:** the strategies, the limits, and on Overview a footer with Pause all, HoldToFlatten, the hint and the SystemReadout.
 
 **Use:**
-- Rows show the position in a box, the strategy ID in \`timing\`, today's gain or loss and a switch. The leader's box is inverted to timing white. The leader's gain is \`best\` when it is up and there is more than one strategy.
+- The heading is \`heading\` after a slanted tab, like a Screen's, and the tower's top-left corner is cut the same way.
+- Rows show the position in a 32px box, the strategy ID in \`timing\`, today's gain or loss and a switch. Position and gain are \`timing\` stepped up to 21px and heavier, the tower's loudest figures. Below a 300px tower the gain drops back to 16px, so the ID keeps one line. The leader's box is inverted to timing white. The leader's gain is \`best\` when it is up and there is more than one strategy.
 - A 3px stripe down the row's left edge carries its state: \`pos\`, \`warn\` or \`flag-red\`.
 - The meta line shows a status value in capitals (RUNNING in \`pos\`, PAUSED in \`warn\`, HALTED as a \`flag-red\` chip), the symbol and fills today. A halted row adds the reason verbatim, then labelled figures: Halted at, and each breached limit with its detail. Pass \`limits\` for those.
 - The switch is on only while running. Turning it off pauses that strategy at once; turning it on asks first in a ConfirmSheet that names the strategy. The switch is a square hardware toggle: a \`pos\` knob on \`pos-soft\` when on. The knob pulses while the engine applies the command.
@@ -470,7 +471,7 @@ Source: \`Allocation\` in \`src/web/components.tsx\`.`,
 **Provide:** cells of a label and a figure already formatted as text, with an optional class for its colour. Add \`pw-amount\` to money, so privacy mode blurs it.
 
 **Use:**
-- Positions, Orders & fills and Strategies open with one. Equal slats with asphalt between them, a \`small\` \`muted\` label over a figure in \`board\`.
+- Positions, Orders & fills and Strategies open with one. Equal slats with asphalt between them, a \`small\` \`muted\` label over a figure in \`board\`. On the timing screen the slats are lit boards, with a 5px dot grid in \`matrix\`, and coloured figures carry \`glow\`.
 - The figure shrinks to fit its slat by its length, like the hero, so a long balance still fits two slats a row on a 320px phone.
 - Colour follows the figure: a gain or loss carries its sign and glyph in \`pos\` or \`neg\`; a count of paused strategies is \`warn\` and of halted ones or rejected orders \`neg\`, but only above zero.
 - Below 900px it shows two slats a row.
@@ -621,8 +622,8 @@ Source: \`EventRow\` and \`EventLog\` in \`src/web/components.tsx\`.`,
 **Provide:** a sentence-case title, optional aside (usually a link to the full screen), and the content. \`flush\` drops the body padding for tables and logs.
 
 **Use:**
-- \`surface\` on the \`bg\` asphalt with \`radius-sm\` corners. No shadow; depth is asphalt showing between screens.
-- The head is at least \`tap-min\` tall with the title in \`label\` bold and a \`border\` rule under it.
+- \`surface\` on the \`bg\` asphalt with \`radius-sm\` corners, the top-left one cut by 14px like a broadcast graphic, with the bezel carried across the cut. No shadow; depth is asphalt showing between screens.
+- The head is 52px tall with the title in \`heading\` after a slanted 5px tab in \`fg\`, and a \`border\` rule under it.
 - Screens are named for what they show: "Positions, 2 open", "Limits", "Account".
 - An empty Screen says what will fill it.
 
