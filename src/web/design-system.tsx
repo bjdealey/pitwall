@@ -629,7 +629,7 @@ Source: \`EventRow\` and \`EventLog\` in \`src/web/components.tsx\`.`,
 **Provide:** a sentence-case title, optional aside (usually a link to the full screen), and the content. \`flush\` drops the body padding for tables and logs.
 
 **Use:**
-- \`surface\` on the \`bg\` asphalt with \`radius-sm\` corners. No shadow; depth is asphalt showing between screens.
+- \`surface\` on the \`bg\` asphalt with \`radius-sm\` corners, casting \`shadow-stack\`: a hard 6px offset down and right, like a stacked broadcast plate. The title plate casts \`shadow-plate\` onto the cap.
 - The face is drawn on \`::before\`, like the tower's, the trace's and every slat's. When a resize moves a panel to another layout, \`glide\` in \`src/web/glide.ts\` slides it there from where it was drawn and grows or shrinks the face to its new size through \`--glide-r\` and \`--glide-b\`.
 - The head is a 52px \`surface-3\` band, the cap. The title is \`heading\` in \`surface\` on a plate of \`fg\` leaning 20°, like a broadcast caption. No rule sits under the head, and no outline around the screen.
 - A Screen wipes in from the left behind a slanted edge when it arrives (460ms), and its rows slide in after it, 40ms apart. On Overview the screens follow the tower and the pit board in reading order. Reduced motion fades them in instead.

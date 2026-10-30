@@ -29,6 +29,8 @@
   --paper: #2c2f34;
   --on-paper: #c9ccd0;
   --scrim: #000000b3;
+  --shadow-stack: 6px 6px 0 #0a0b0c;
+  --shadow-plate: 3px 3px 0 #000000;
   --shadow-sheet: 0 16px 48px #000000cc;
   --focus-ring: 0 0 0 2px #000000, 0 0 0 4px #f4f4f1;
   color-scheme: dark;
@@ -63,6 +65,8 @@
   --paper: #d4d1c9;
   --on-paper: #2b2d31;
   --scrim: #00000066;
+  --shadow-stack: 6px 6px 0 #d4d1c9;
+  --shadow-plate: 3px 3px 0 #b8b4aa;
   --shadow-sheet: 0 16px 48px #0000002e;
   --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px #000000;
   color-scheme: light;
@@ -98,6 +102,8 @@
     --paper: #d4d1c9;
     --on-paper: #2b2d31;
     --scrim: #00000066;
+    --shadow-stack: 6px 6px 0 #d4d1c9;
+    --shadow-plate: 3px 3px 0 #b8b4aa;
     --shadow-sheet: 0 16px 48px #0000002e;
     --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px #000000;
     color-scheme: light;

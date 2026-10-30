@@ -261,7 +261,7 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-screen { min-width: 0; }
 .pw-screen-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 52px; padding: 0 var(--space-4); background: var(--surface-3); }
 /* Titles read like a broadcast caption: `heading` type on a timing-white plate slanted like the panel wipe, on the head's band. */
-.pw-screen-title { position: relative; isolation: isolate; margin: 0; padding: 3px var(--space-3); color: var(--surface); }
+.pw-screen-title { position: relative; isolation: isolate; margin: 0; padding: 3px var(--space-3); color: var(--surface); filter: drop-shadow(var(--shadow-plate)); }
 .pw-screen-title::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--fg); transform: skewX(-20deg); }
 .pw-screen-link { position: relative; color: var(--muted); text-decoration: none; }
 .pw-screen-link:hover { color: var(--fg); text-decoration: underline; }
@@ -348,7 +348,7 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
 
 .pw-login { display: grid; grid-template-rows: var(--banner-h) 1fr; min-height: 100dvh; }
-.pw-login-board { display: flex; flex-direction: column; gap: var(--space-4); width: calc(100% - 2 * var(--space-4)); max-width: 380px; margin: auto; padding: var(--space-6); background: var(--surface); border-radius: var(--radius-sm); }
+.pw-login-board { display: flex; flex-direction: column; gap: var(--space-4); width: calc(100% - 2 * var(--space-4)); max-width: 380px; margin: auto; padding: var(--space-6); background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-stack); }
 .pw-login-board h1 { margin: 0; }
 /* Sign-in is a pit board: the wordmark on one slat, the passcode on the next, asphalt between. */
 .pw-login-form { display: flex; flex-direction: column; gap: var(--space-1); width: calc(100% - 2 * var(--space-4)); max-width: 380px; margin: auto; }
@@ -407,10 +407,11 @@ button:disabled { cursor: default; opacity: .6; }
 
 /* Panels draw their face on ::before; at rest it fills the panel. When the window moves a panel into another layout,
    glide.ts slides the panel there and grows or shrinks the face to its new size through --glide-r and --glide-b,
-   clipping what the panel holds to the face. */
+   clipping what the panel holds to the face. The face casts `shadow-stack`, and the clip leaves 6px for it.
+   Readout cells each cast one too: a later cell covers the shadow of the one before, so the strip casts one shadow. */
 .pw-screen, .pw-tower, .pw-trace, .pw-slat { --glide-r: 0px; --glide-b: 0px; position: relative; isolation: isolate; border-radius: var(--radius-sm); }
-:is(.pw-screen, .pw-tower, .pw-trace, .pw-slat)::before { content: ""; position: absolute; inset: 0 var(--glide-r) var(--glide-b) 0; z-index: -1; border-radius: inherit; background: var(--surface); }
-.pw-screen, .pw-tower, [data-glide] { clip-path: inset(0 var(--glide-r) var(--glide-b) 0 round var(--radius-sm)); }
+:is(.pw-screen, .pw-tower, .pw-trace, .pw-slat)::before { content: ""; position: absolute; inset: 0 var(--glide-r) var(--glide-b) 0; z-index: -1; border-radius: inherit; background: var(--surface); box-shadow: var(--shadow-stack); }
+.pw-screen, .pw-tower, [data-glide] { clip-path: inset(0 calc(var(--glide-r) - 6px) calc(var(--glide-b) - 6px) 0 round var(--radius-sm)); }
 
 /* Motion. Every animation reports something: a heartbeat, a pending command, a state change, an overtake, a new event, a new screen.
    Nothing just appears: a screen builds like a broadcast graphic, and the page under it does not cross-fade. */
@@ -452,7 +453,7 @@ button:disabled { cursor: default; opacity: .6; }
 /* Entrances. Each runs once, when its element arrives: on a new screen, a new range, a new row.
    Panels wipe in behind a slanted edge in reading order (--enter), then their rows slide in one after another (--row),
    figures rise into their slats, meters and bars fill from zero, and the trace draws across its span. */
-@keyframes pw-wipe { from { clip-path: polygon(0 0, 0 0, -24px 100%, -24px 100%, 0 0); } to { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0); } }
+@keyframes pw-wipe { from { clip-path: polygon(0 0, 0 0, -24px 100%, -24px 100%, 0 0); } to { clip-path: polygon(0 0, calc(100% + 6px) 0, calc(100% + 6px) calc(100% + 6px), 0 calc(100% + 6px), 0 0); } }
 @keyframes pw-slide-in { from { opacity: 0; translate: -12px 0; } }
 @keyframes pw-fill { from { transform: scaleX(0); } }
 @keyframes pw-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
