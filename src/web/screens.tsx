@@ -12,6 +12,7 @@ import {
   EventLog,
   Figures,
   HoldToFlatten,
+  leaveSheet,
   LimitMeter,
   PasscodeInput,
   PitBoard,
@@ -105,7 +106,7 @@ const openOrdersLine = (snapshot: Snapshot | null) => (snapshot ? `Cancels ${cou
 
 function FlattenSheet({ snapshot, onClose }: { snapshot: Snapshot; onClose: () => void }) {
   const [passcode, setPasscode] = useState('');
-  const { error, attempt, busy, send } = usePost(() => sendCommand({ kind: 'flatten' }, passcode), onClose);
+  const { error, attempt, busy, send } = usePost(() => sendCommand({ kind: 'flatten' }, passcode), () => leaveSheet(onClose));
   return (
     <ConfirmSheet title="Flatten all positions?" confirmLabel="Flatten" confirmClass="pw-btn-danger" busy={busy} onConfirm={send} onCancel={onClose}>
       <ol className="pw-steps">
@@ -119,7 +120,7 @@ function FlattenSheet({ snapshot, onClose }: { snapshot: Snapshot; onClose: () =
 }
 
 export function PauseAllSheet({ snapshot, onClose }: { snapshot: Snapshot | null; onClose: () => void }) {
-  const { error, attempt, busy, send } = usePost(() => sendCommand({ kind: 'pause-all' }), onClose);
+  const { error, attempt, busy, send } = usePost(() => sendCommand({ kind: 'pause-all' }), () => leaveSheet(onClose));
   return (
     <ConfirmSheet title="Pause all strategies?" confirmLabel="Pause all" confirmClass="pw-btn-danger" busy={busy} error={error} attempt={attempt} onConfirm={send} onCancel={onClose}>
       <ol className="pw-steps">
@@ -157,15 +158,19 @@ function PositionsTable({ positions }: { positions: Position[] }) {
             const before = lastQty.current.get(p.symbol);
             const t = tone(p.unrealizedPl);
             return (
-              <tr key={`${p.symbol}:${p.qty}`} className={before !== undefined && before !== p.qty ? 'pw-changed' : undefined}>
+              <tr key={p.symbol} className={before !== undefined && before !== p.qty ? 'pw-changed' : undefined}>
                 <td className="pw-timing" translate="no">
                   {p.symbol}
                 </td>
                 <td className="pw-r pw-amount">{qty(p.qty)}</td>
                 <td className="pw-r pw-hide-phone">{money(p.avgEntryPrice)}</td>
-                <td className="pw-r">{money(p.lastPrice)}</td>
+                <td className="pw-r">
+                  {money(p.lastPrice)}
+                  <span className="pw-fold pw-small pw-muted">avg {money(p.avgEntryPrice)}</span>
+                </td>
                 <td className="pw-r">
                   <SignedMoney value={p.unrealizedPl} />
+                  <span className={`pw-fold pw-small ${toneClass[t]}`}>{signedPct(p.unrealizedPlPct)}</span>
                 </td>
                 <td className={`pw-r pw-hide-phone ${toneClass[t]}`}>
                   <span className="pw-pl">
@@ -254,6 +259,9 @@ export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
                     <td className="pw-muted">{etClock(o.submittedAt)}</td>
                     <td className="pw-timing" translate="no">
                       {o.symbol}
+                      <span className={`pw-fold pw-small ${o.strategyId ? '' : 'pw-muted'}`} translate={o.strategyId ? undefined : 'yes'}>
+                        {o.strategyId ?? 'manual'}
+                      </span>
                     </td>
                     <td className="pw-small pw-caps">{o.side}</td>
                     <td className="pw-r pw-amount">{qty(o.qty)}</td>
@@ -261,6 +269,11 @@ export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
                     <td className="pw-r pw-hide-phone">{o.filledAvgPrice === null ? '' : money(o.filledAvgPrice)}</td>
                     <td>
                       <span className={`pw-status pw-small pw-caps ${orderClass(o.status)}`}>{o.status.replaceAll('_', ' ')}</span>
+                      {o.filledQty > 0 && (
+                        <span className="pw-fold pw-small pw-muted">
+                          <span className="pw-amount">{qty(o.filledQty)}</span> {o.filledAvgPrice === null ? 'filled' : `at ${money(o.filledAvgPrice)}`}
+                        </span>
+                      )}
                     </td>
                     <td className={`pw-hide-phone ${o.strategyId ? '' : 'pw-muted'}`} translate={o.strategyId ? 'no' : undefined}>
                       {o.strategyId ?? 'manual'}

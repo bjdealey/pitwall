@@ -74,11 +74,10 @@ const loadDaily = (today: string) => {
   return request;
 };
 
-/** Daily closing equity for the trace's longer ranges, loaded on first use. ask changes on every range pick, so a failed load retries. */
-export function useDailyHistory(today: string | null, ask: unknown): DailyHistory {
+/** Daily closing equity for the trace's longer ranges. ask changes on every range pick, so a failed load retries. */
+export function useDailyHistory(today: string, ask: unknown): DailyHistory {
   const [history, setHistory] = useState<DailyHistory>({ kind: 'loading' });
   useEffect(() => {
-    if (today === null) return;
     let current = true;
     loadDaily(today).then(
       (days) => current && setHistory({ kind: 'ready', days }),

@@ -72,7 +72,8 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
 
 1. The mode strip (`banner-h`).
 2. The track band (`track-h`).
-3. The gantry header (`header-h`): the wordmark, the five screens as tabs, the market chip, Full screen, and Stop. Full screen shows from 1100px wide, where a wall screen is likely, and only where the browser allows it.
+3. The gantry header (`header-h`): the wordmark, the five screens as tabs, the market chip, Full screen, and Stop. Full screen shows only where the browser allows it and the gantry has room for it: from 1100px, and from 600px to 899px, where the tabs have moved to the tab bar. A desk monitor or a tablet on a wall can use either.
+   When the gantry runs short, it gives up width in this order: the chequered strip narrows to nothing; below 460px the market chip folds its next change; below 360px it folds any state longer than Open, leaving its light. Tapping the chip opens the whole line, "Market closed, opens Mon 09:30 ET.", in a popover under it. Stop keeps its place and size at every width.
 4. The page.
 
 **Overview** has two columns:
@@ -85,7 +86,7 @@ Tabular figures are on everywhere, so columns line up without a monospace face. 
   
   Beside the board, the day's trace sits against the previous close as a single line, like a telemetry trace: no area fill, no gradient. Its axis spans the regular session, 09:30 to 16:00 ET, with a faint line each hour, so the trace grows across the day and the empty part is the time left. A dot in the trace's colour marks the latest sample. Like high and low water on a tide chart, the day high (in `best`, only when above the previous close) and the day low (only when below it) carry their figure and time on the curve.
   Pointing at the trace, or focusing it and using the arrow keys, Home and End, scrubs it: a dashed `muted` cursor snaps to the nearest sample and a readout at the top of the plot gives its ET time, equity and change on the day. The readout centres on the cursor and stops at the plot's edges, and the high and low labels step aside while it shows. Pointer leave, Escape or blur clears it. Screen readers get the same readout as the slider's value.
-  Warnings, errors and halts in the session stand on the axis as flags: a 3px by 12px stripe in the event log's stripe colour (`warn`, `neg`, `flag-red`). Scrubbing to a flag's sample adds the worst of them to the readout, its severity in caps and its message cut to one line, with a count of the rest. Info events get no flag. Flags draw over the high and low labels, so a label never hides a halt.
+  Warnings, errors and halts in the session stand on the axis as flags: a 3px by 12px stripe in the event log's stripe colour (`warn`, `neg`, `flag-red`). Scrubbing to a flag's sample adds the worst of them to the readout, its severity in caps and its whole message, wrapping where the plot is narrow, with a count of the rest. The Events screen lists them all. Info events get no flag. Flags stand on the axis rule, under the plot, so the line, the dots and the high and low labels never cover one, and a flag never covers them. Flags closer than 1.5% of the plot's width merge into the worst of them, so on a phone none stacks on another.
   Under the axis, a range bar picks the span: Today, 1M, 3M, YTD, 1Y and All, as quiet `muted` words with the chosen one on a `surface-2` key with a hairline. Today is the session trace above. The longer ranges draw one daily close per trading day, ending at the live equity, against the range's first close: dates replace ET times, a faint line marks each month start (each year start past about 13 months), dates carry the year once the range crosses one, and the legend reads "First close". They have no flags and no high and low labels, because the board's slats already hold the day's. The range is not kept across reloads, so the board always opens on today.
 - **Right, below:** Positions across the full width, then Limits and Account side by side at one height, so their bottom edges meet on one line, then Events.
 
@@ -102,19 +103,20 @@ Table headers sit on a `surface-2` band. Beside each position's P&L % a small ba
 **Below 900px:**
 
 - The tabs move to a bottom tab bar (`tabbar-h`).
-- The market chip shows its state only.
 - Positions, Limits and Account stack in one column.
 - Readouts show two slats a row.
-- Table columns sit 16px apart instead of 32px, with the outer edges still on the screen's 16px, so Orders & fills fits a 375px phone without scrolling sideways. Below 360px they sit 8px apart.
+- Table columns draw closer as the window narrows, from 32px apart at 900px to 16px at 560px and 8px at 360px, with the outer edges still on the screen's 16px, so Orders & fills fits a 375px phone without scrolling sideways. Secondary columns fold into the cell beside them as a second `small` line: on Positions, the average price under Last ("avg $571.20", `muted`) and P&L % under P&L in its tone; on Orders & fills, the strategy (or "manual", `muted`) under the symbol, and what filled under the status ("12 at $571.20"). The P&L bar is the one thing a phone drops; its figure stays. A table that is still too wide, at 320px or with a long strategy ID, scrolls sideways rather than cut anything.
+
+**Nothing is lost to a narrow window.** What has no room folds into something nearby, or behind a tap, and says where it went. Nothing is cut off with an ellipsis or dropped outright. Ornament gives way first, then secondary detail, and Stop never does.
 - Event rows stack: time and severity first, then the message.
 
 Anything you tap is at least `tap-min` tall. Small text links (Review strategies, All positions, Full log) keep their size and get a `tap-min` hit area around them.
 
-The side gutter is 24px on desktop and 16px below 900px, and never less than the device's safe-area inset, so a phone held sideways keeps the notch clear of the band, the gantry and the page. The tab bar pads for the home indicator. Only the content scrolls: the mode strip, band and gantry never leave the top of the screen.
+The side gutter grows with the window, from 16px at 560px wide to 24px from 900px, and is never less than the device's safe-area inset, so a phone held sideways keeps the notch clear of the band, the gantry and the page. The tab bar pads for the home indicator. Only the content scrolls: the mode strip, band and gantry never leave the top of the screen.
 
 ## Shape and depth
 
-Screens are hardware, nearly square: `radius-sm` (2px) for screens, chips and inputs, `radius-md` (4px) for buttons and dialogs, `radius-full` for status lights only. Switches are hardware toggles, `radius-sm` with a square knob: off, a `muted` knob on `surface-2`; on, a `pos` knob on `pos-soft` inside a `pos` edge. Screens, the tower and the trace have their top-left corner cut by 14px, like a broadcast graphic, with the bezel carried across the cut. Slats, chips, buttons and dialogs keep all four corners. There are no shadows on the page. Depth is a hairline bezel and asphalt showing between black screens. Only dialogs lift, with `shadow-sheet` over `scrim`.
+Screens are hardware, nearly square: `radius-sm` (2px) for screens, chips and inputs, `radius-md` (4px) for buttons and dialogs, `radius-full` for status lights only. Switches are hardware toggles, `radius-sm` with a square knob: off, a `muted` knob on `surface-2`; on, a `pos` knob on `pos-soft` inside a `pos` edge. Every panel keeps four plain corners, and none clips what sits inside it: labels, flags and focus rings show whole. There are no shadows on the page. Depth is a hairline bezel and asphalt showing between black screens. Only dialogs lift, with `shadow-sheet` over `scrim`.
 
 **Light.** On the timing screen, lit things glow like LEDs: figures in `pos`, `neg` and `best`, the equity hero and the trace line carry `glow`, a soft bloom in their own colour. The hero slat and each readout's slats are lit boards, with a 5px dot grid in `matrix` behind the figures. On the timing sheet both are off, because paper does not light up. Light never carries meaning on its own; it only follows a figure that already does. A dialog that stops trading (Pause all, Flatten) carries a 4px `flag-red` top edge with square top corners, and lists its effects as numbered steps in boxes like tower positions.
 
@@ -128,20 +130,33 @@ The first Tab on every screen reaches "Skip to content", which moves focus to th
 
 ## Motion
 
-Motion reports something or it does not run. Prices never flash on ticks. The whole list:
+Motion reports something or it does not run, and nothing just appears: arriving is something to report. Prices never flash on ticks. The whole list:
 
 - **Heartbeat pulse.** The engine light in the tower's system readout sends out one ring each time a heartbeat arrives, every 5s. It stops when data goes stale.
-- **Track band.** Its colour crossfades (400ms) when the session state changes.
-- **Screen change.** The active tab bar slides to the new tab (280ms), using View Transitions where the browser has them. The page itself switches at once, like a timing feed: no fade, no rise.
+- **Track band.** Its colour crossfades (400ms) when the session state changes, the flag rises into place and the new text slides in from the left like a ticker (360ms). When the new text takes another line, or one fewer, the band eases to its new height over the same 360ms, so the app below glides instead of jumping. The text stays mounted, so its live region still announces.
+- **Screen change.** The active tab bar slides to the new tab (280ms), using View Transitions where the browser has them. The old page does not cross-fade; the new one builds.
+- **Entrance.** A screen builds like a broadcast graphic, the first time it shows and on every screen change:
+  - Panels (screens, the tower, the trace and slats) wipe in from the left behind an edge slanted like the title tabs (460ms), in reading order, 40 to 60ms apart: on Overview the tower, then the pit board's slats and trace, then Positions, Limits, Account and Events.
+  - Rows (tower rows, table rows, events, figure rows, meters and system readings) slide 12px in from the left and fade up after their panel, 40ms apart; rows past the seventh arrive with the seventh, so a long log never trickles in.
+  - Board figures rise into their slats. Meters and P&L bars fill from zero. The allocation strip wipes across.
+  - The trace draws across its span from left to right (800ms), then its latest dot, high and low labels fade in and its flags rise from the axis. Picking a range moves the trace like a camera between the two windows (600ms) instead of redrawing it: each moment on the line slides from where it sat to where it lands, the baseline and latest dot go with it, a grid line both ranges share slides to its new place, and the others fade in or out as they slide from or to where their moment sits.
+  - Empty states, loading lines, errors and the market chip's state fade in (240ms).
+  Each runs once, when its element arrives. Ticks re-render without replaying any of it.
+- **Holding place.** Changed content updates in place. Rows are keyed by what they are (a symbol, an order, a strategy, the first event of a folded run), never by a value that changes, so a new quantity or a repeat never rebuilds its row. Labels keep their place while the words beside them change: a status value is as wide as RUNNING, and the trace axis keeps its legend centred however wide its end dates are.
+- **Resizing.** Dragging a window from one layout to the next never makes anything jump or pop.
+  - Gutters, gaps, table spacing, the trace's height and the tower's gain grow and shrink with the window, so most of the page simply follows it.
+  - Whatever a breakpoint, a container query or a grid that fits one column fewer moves to another place slides there from where it was drawn, and a panel grows or shrinks its face to its new size on the way (most of the way in 250ms, settled by 600ms). Rows slide inside their panel and the pieces of a row inside the row, and a figure set at its column's right edge holds that edge.
+  - What a layout drops fades out (240ms) and then gives up its space, which closes with the same slide: the gantry's tabs, secondary table columns, the tower's column headings. What it adds takes its space and fades in.
+  - The tab bar rises from the bottom edge as its row opens (360ms) and sinks the same way. Full screen and the market chip's next change and state fold away to nothing, and the chequered strip narrows with the window. As a secondary column fades, its value opens as a second line in the cell beside it (240ms), and closes the same way.
 - **Hold to flatten.** The fill tracks the 2s press, the button settles to 98.5%, the label reads "Keep holding…", and an early release eases the fill back (240ms).
 - **Pending command.** A strategy switch pulses its knob while the engine applies the command. It stays focusable (`aria-disabled`, not `disabled`), so focus is never lost and a stale engine never locks it.
 - **State change.** When a strategy's state changes, its status value pops in and its tower row flashes the state colour once (1.4s).
 - **Overtake.** When the ranking changes, each tower row slides from its old place to its new one (480ms), the row gaining places passing over the one it overtakes.
 - **Meter reading.** Limit and system meters fill toward a new reading (480ms), lighting segment by segment.
-- **New event.** A newly arrived event row tints and settles (1.6s).
-- **Feedback.** Buttons press to 98%. Dialogs fade and rise (200ms) over a backdrop that fades in (160ms). Figures fade to `muted` when stale (300ms). A position row tints when its quantity changes (600ms).
+- **New event.** A newly arrived event row drops in, tints and settles (1.6s). A repeat that folds into a row already on screen tints it again, and the row stays where it is.
+- **Feedback.** Buttons press to 98%. Dialogs fade and rise (200ms) over a backdrop that fades in (160ms), and leave by falling 6px and fading with their backdrop (160ms), whether cancelled or confirmed. Privacy mode blurs and unblurs amounts over 240ms. Range presets ease to their pressed key (150ms). Figures fade to `muted` when stale (300ms). A position row tints when its quantity changes (600ms).
 
-Easing is `cubic-bezier(.16, 1, .3, 1)` for arrivals, and exits run faster than entrances. Moving things animate `transform` and `opacity` only: row tints and flashes are a layer behind the row that fades out, never an animated background. Colour changes on the track band and on controls may crossfade. Under `prefers-reduced-motion` nothing moves: entrances become fades, the pulse becomes a glow, row tints stay, and the hold fill still tracks the press.
+Easing is `cubic-bezier(.16, 1, .3, 1)` for arrivals, and exits run faster than entrances. Moving things animate `transform` and `opacity`, and wipes and the trace draw animate `clip-path`: row tints and flashes are a layer behind the row that fades out, never an animated background. Colour changes on the track band and on controls may crossfade. Under `prefers-reduced-motion` nothing moves: entrances become fades in the same order, meters and bars show their reading at once, sheets leave at once, the pulse becomes a glow, row tints stay, the hold fill still tracks the press, and a resize moves nothing: what a layout drops or adds only fades.
 
 ## Privacy mode
 
@@ -171,4 +186,4 @@ It is visual only. Screen readers, the event log's messages, the dialogs and the
 
 Lucide, from `lucide-react`, at 18px in `currentColor`, always beside a word. The tab bar uses `gauge`, `briefcase`, `arrow-left-right`, `layers` and `activity`. Stop uses `octagon-x`, Pause all uses `pause`, Full screen uses `maximize` or `minimize` while the page fills the screen. The privacy eye, `eye` or `eye-off` while amounts are hidden, is the one icon without a word beside it: it sits at the end of a slat's label, named and titled "Hide amounts", and its tap target reaches 44px. The flag icon in the track band is drawn in the app: a pole and a cloth, solid or chequered.
 
-There is no logo mark. The brand is the PITWALL wordmark in `wordmark` style. In the gantry a strip of chequered flag, two rows of 5px squares in timing white (ink on the sheet), follows it: the gantry's one ornament. Below 360px it gives way, so Stop still fits. The home-screen icon is the letter P in Archivo 800, expanded like the wordmark, timing white on asphalt.
+There is no logo mark. The brand is the PITWALL wordmark in `wordmark` style. In the gantry a strip of chequered flag, two rows of 5px squares in timing white (ink on the sheet), follows it: the gantry's one ornament. When the gantry runs short, the strip narrows before anything else gives up width, down to nothing, so the market chip and Stop always fit. The home-screen icon is the letter P in Archivo 800, expanded like the wordmark, timing white on asphalt.

@@ -7,6 +7,7 @@ import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { FullscreenButton, HeartbeatAgeContext, MarketChip, ModeStrip, PasscodeInput, PrivacyContext, TrackBand, trackStatus, usePrivacy } from './components.tsx';
 import { DEMO, freshness, postJson, useNow, usePost, useSnapshot } from './data.ts';
+import { glide } from './glide.ts';
 import { Events, Orders, Overview, PauseAllSheet, Positions, Strategies } from './screens.tsx';
 
 const ROUTES = [
@@ -56,6 +57,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         <span className="pw-wordmark" translate="no">
           PITWALL
         </span>
+        <span className="pw-strip" aria-hidden />
         <nav className="pw-nav" aria-label="Screens">
           {ROUTES.map(({ hash, label }) => (
             <a key={hash} href={hash} className="pw-nav-item pw-timing" aria-current={hash === route.hash ? 'page' : undefined}>
@@ -148,6 +150,7 @@ function App() {
 
 const root = document.getElementById('root');
 if (root) {
+  glide();
   createRoot(root).render(
     <StrictMode>
       <App />

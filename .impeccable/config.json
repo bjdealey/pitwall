@@ -20,6 +20,15 @@
         ],
         "createdAt": "2026-10-29T22:27:48.798Z",
         "reason": "Claude's decision: the only match is the danger sheet's 4px flag-red top edge, whose top corners are set to 0 in the same rule (computed border-radius 0px 0px 4px 4px, checked in the browser), so the border no longer meets a rounded corner"
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "src/web/pitwall.css"
+        ],
+        "createdAt": "2026-10-30T11:36:46.937Z",
+        "reason": "Deliberate one-shot folds at breakpoint crossings (Full screen, market chip's next change, chequered strip): 360ms on one small gantry element in a fixed-height row, so a resize closes their space smoothly instead of jumping. Layout jumps elsewhere glide with transforms (glide.ts)."
       }
     ]
   }

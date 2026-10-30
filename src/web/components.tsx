@@ -1,11 +1,12 @@
 import { Eye, EyeOff, Maximize, Minimize } from 'lucide-react';
-import { createContext, use, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { createContext, use, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type PointerEvent, type ReactNode, type ToggleEvent } from 'react';
 import { createPortal } from 'react-dom';
 import type { Account, DailyEquity, EventRecord, Health, Limit, MarketSession, Mode, Position, Severity, Strategy, StrategyState } from '../shared/domain.ts';
 import { atET, et } from '../shared/et.ts';
 import { calendarDate, changePercent, count, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
 import { DAILY_RANGES, rangeCloses, type RangeId } from '../shared/ranges.ts';
 import { DEMO, HEARTBEAT_STALE_MS, sendCommand, useDailyHistory, usePost } from './data.ts';
+import { frameAt, type Drawn, type Pt } from './morph.ts';
 
 export const toneClass: Record<Tone, string> = { up: 'pw-up', down: 'pw-down', flat: 'pw-flat' };
 
@@ -61,10 +62,24 @@ export function FlagIcon({ kind }: { kind: FlagKind }) {
 }
 
 export function TrackBand({ status }: { status: TrackStatus }) {
+  const bandRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLParagraphElement>(null);
+  const height = useRef(0);
+  // A new session state slides in like a ticker. The paragraph stays mounted, so its live region still announces.
+  // When the new text takes another line, the band eases to its new height, so the app below glides instead of jumping.
+  useLayoutEffect(() => {
+    const from = height.current;
+    const to = bandRef.current?.offsetHeight ?? 0;
+    height.current = to;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const ease = { duration: 360, easing: 'cubic-bezier(.16, 1, .3, 1)' };
+    textRef.current?.animate([{ opacity: 0, translate: '-12px 0' }, { opacity: 1, translate: '0 0' }], ease);
+    if (from && from !== to) bandRef.current?.animate([{ height: `${from}px`, overflow: 'hidden' }, { height: `${to}px`, overflow: 'hidden' }], ease);
+  }, [status.text]);
   return (
-    <div className={`pw-track pw-track-${status.kind}`}>
-      <FlagIcon kind={status.kind} />
-      <p className="pw-track-text pw-label">
+    <div ref={bandRef} className={`pw-track pw-track-${status.kind}`}>
+      <FlagIcon key={status.kind} kind={status.kind} />
+      <p ref={textRef} className="pw-track-text pw-label">
         <strong role="status">{status.text}</strong>
         {status.detail && <span className="pw-track-detail"> {status.detail}</span>}
       </p>
@@ -77,30 +92,56 @@ export function TrackBand({ status }: { status: TrackStatus }) {
   );
 }
 
-const MARKET: Record<MarketSession['state'], { label: string; next: string }> = {
-  open: { label: 'Open', next: 'closes' },
-  pre: { label: 'Pre-market', next: 'opens' },
-  after: { label: 'After-hours', next: 'ends' },
-  closed: { label: 'Closed', next: 'opens' },
+const MARKET: Record<MarketSession['state'], { name: string; label: string; next: string }> = {
+  open: { name: 'Market open', label: 'Open', next: 'closes' },
+  pre: { name: 'Pre-market', label: 'Pre-market', next: 'opens' },
+  after: { name: 'After-hours', label: 'After-hours', next: 'ends' },
+  closed: { name: 'Market closed', label: 'Closed', next: 'opens' },
 };
 
+/** The market's state and its next change. A narrow gantry folds the next change, then any label longer than Open, so the chip opens a popover with the whole line. */
 export function MarketChip({ market, now }: { market: MarketSession; now: number }) {
-  const { label, next } = MARKET[market.state];
+  const id = useId();
+  const chipRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // The popover is placed from the chip once, so a resize closes it rather than leave it behind.
+    const close = () => popRef.current?.matches(':popover-open') && popRef.current.hidePopover();
+    addEventListener('resize', close);
+    return () => removeEventListener('resize', close);
+  }, []);
+  const { name, label, next } = MARKET[market.state];
   const at = new Date(market.nextChangeAt);
   const day = et(at).date === et(new Date(now)).date ? '' : `${et(at).weekday} `;
+  const line = `${name}, ${next} ${day}${etTime(market.nextChangeAt)}`;
+  const place = (e: ToggleEvent<HTMLDivElement>) => {
+    const chip = chipRef.current?.getBoundingClientRect();
+    if (e.newState !== 'open' || !chip) return;
+    const pop = e.currentTarget.style;
+    pop.top = `${chip.bottom + 4}px`;
+    pop.right = `${innerWidth - chip.right}px`;
+    pop.maxWidth = `${chip.right - 16}px`;
+  };
   return (
-    <span className={`pw-market pw-market-${market.state} pw-small`}>
-      <span className="pw-light" aria-hidden />
-      <span className="pw-market-state">{label}</span>
-      <span className="pw-market-next">
-        {next} {day}
-        {etTime(market.nextChangeAt)}
-      </span>
-    </span>
+    <>
+      <button ref={chipRef} type="button" className={`pw-market pw-market-${market.state} pw-small`} popoverTarget={id} aria-label={line}>
+        <span className="pw-light" aria-hidden />
+        <span key={market.state} className="pw-market-state">
+          {label}
+        </span>
+        <span className="pw-market-next">
+          {next} {day}
+          {etTime(market.nextChangeAt)}
+        </span>
+      </button>
+      <div ref={popRef} id={id} popover="auto" className="pw-popover pw-small" onBeforeToggle={place}>
+        {line}.
+      </div>
+    </>
   );
 }
 
-/** Full screen for a wall display, like a charting app's fullscreen mode. Shown only where the browser allows it, and from 900px. */
+/** Full screen for a wall display, like a charting app's fullscreen mode. Shown only where the browser allows it and the gantry has room. */
 export function FullscreenButton() {
   const [full, setFull] = useState(() => document.fullscreenElement !== null);
   useEffect(() => {
@@ -251,7 +292,8 @@ export function PitBoard({ account, points, events, stale }: { account: Account;
   const [asked, setAsked] = useState(0);
   const today = et(new Date()).date;
   const daily = DAILY_RANGES.find((r) => r.id === range);
-  const history = useDailyHistory(daily ? today : null, asked);
+  // Loaded with the board, not on the first pick, so a range opens on its line instead of a loading message.
+  const history = useDailyHistory(today, asked);
   const model = !daily ? sessionModel(points, account.lastEquity, events) : history.kind === 'ready' ? rangeModel(rangeCloses(history.days, daily.start(today), today, account.equity)) : null;
   const empty = !daily
     ? 'The trace fills in as the engine records equity through the day.'
@@ -353,6 +395,116 @@ function rangeModel(closes: DailyEquity[]): TraceModel | null {
   return { points, baseline: first.equity, baselineLabel: 'First close', t0, t1, grid, when, since: `since ${when(first.at)}`, flags: [], tags: false };
 }
 
+const toPoints = (line: Pt[]) => line.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(' ');
+const dotAt = ([px, py]: Pt) => ({ left: `${(px / TRACE_W) * 100}%`, top: `${(py / TRACE_H) * 100}%` });
+
+/** The line in plot units over its window, t0 to t1, and the baseline's height. A new window is a new range to morph to. */
+type Stroke = Drawn & { base: number };
+
+const MORPH_MS = 600;
+
+/** The trace's line, baseline and latest dot. A new range morphs them from the old window to the new one, so the trace moves like a camera instead of redrawing. */
+function TraceStroke({ t0, t1, line, base }: Stroke) {
+  const lineRef = useRef<SVGPolylineElement>(null);
+  const baseRef = useRef<SVGLineElement>(null);
+  const nowRef = useRef<HTMLSpanElement>(null);
+  // What is on screen, which mid-morph is neither range's shape, and what the morph is heading for.
+  const shown = useRef<Stroke | null>(null);
+  const target = useRef<Stroke>({ t0, t1, line, base });
+  const frame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+  useLayoutEffect(() => {
+    const paint = (s: Stroke) => {
+      shown.current = s;
+      lineRef.current?.setAttribute('points', toPoints(s.line));
+      baseRef.current?.setAttribute('y1', String(s.base));
+      baseRef.current?.setAttribute('y2', String(s.base));
+      const end = s.line.at(-1);
+      if (end && nowRef.current) Object.assign(nowRef.current.style, dotAt(end));
+    };
+    const aimed = target.current;
+    target.current = { t0, t1, line, base };
+    const from = shown.current;
+    if (!from || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      shown.current = target.current;
+      return;
+    }
+    if (aimed.t0 === t0 && aimed.t1 === t1) {
+      // A tick during a morph re-renders the final shape; repaint the morph's frame before the browser shows it.
+      if (frame.current) paint(from);
+      else shown.current = target.current;
+      return;
+    }
+    cancelAnimationFrame(frame.current);
+    const start = performance.now();
+    const step = (now: number) => {
+      // A frame's timestamp can precede start, which would run the morph backwards past its first shape.
+      const t = Math.min(1, Math.max(0, (now - start) / MORPH_MS));
+      const e = 1 - (1 - t) ** 3;
+      const to = target.current;
+      if (t === 1) {
+        frame.current = 0;
+        paint(to);
+        return;
+      }
+      paint({ ...frameAt(from, to, e, TRACE_W), base: from.base + (to.base - from.base) * e });
+      frame.current = requestAnimationFrame(step);
+    };
+    step(start);
+  });
+  const end = line.at(-1);
+  return (
+    <>
+      <svg className="pw-trace-stroke" viewBox={`0 0 ${TRACE_W} ${TRACE_H}`} preserveAspectRatio="none" aria-hidden>
+        <line ref={baseRef} className="pw-trace-base" x1={0} x2={TRACE_W} y1={base} y2={base} />
+        <polyline ref={lineRef} className="pw-trace-line" points={toPoints(line)} />
+      </svg>
+      {end && <span ref={nowRef} className="pw-trace-now" style={dotAt(end)} />}
+    </>
+  );
+}
+
+type Window = { t0: number; t1: number };
+
+/** Where a moment sits across a window, in percent, held to the plot's edges. */
+const leftIn = (at: number, w: Window) => Math.min(100, Math.max(0, ((at - w.t0) / (w.t1 - w.t0 || 1)) * 100));
+
+/**
+ * The trace's vertical lines, at each hour, month or year start. On a new range they move with the line's morph:
+ * a line both ranges share slides to its new place, a new one fades in as it slides from where its moment sat in the
+ * old window, and an old one fades out as it slides to where its moment lands in the new one.
+ */
+function TraceGrid({ lines, t0, t1 }: { lines: number[] } & Window) {
+  const sig = `${t0}:${t1}:${lines.join()}`;
+  const [last, setLast] = useState({ sig, lines, t0, t1 });
+  const [from, setFrom] = useState(new Map<number, number>());
+  const [gone, setGone] = useState<{ at: number; from: number; to: number }[]>([]);
+  if (last.sig !== sig) {
+    const kept = new Set(lines);
+    const was = new Set(last.lines);
+    // Each line keeps the place it entered from, so a tick never moves the start of a slide already running.
+    setFrom(new Map([...[...from].filter(([at]) => kept.has(at)), ...lines.filter((at) => !was.has(at)).map((at): [number, number] => [at, leftIn(at, last)])]));
+    setGone([...gone.filter((g) => !kept.has(g.at)), ...last.lines.filter((at) => !kept.has(at) && !gone.some((g) => g.at === at)).map((at) => ({ at, from: leftIn(at, last), to: leftIn(at, { t0, t1 }) }))]);
+    setLast({ sig, lines, t0, t1 });
+  }
+  return (
+    <>
+      {gone.map((g) => (
+        <span
+          key={`out-${g.at}`}
+          className="pw-trace-vline pw-trace-vline-out"
+          style={{ left: `${g.to}%`, '--from': `${g.from}%` } as CSSProperties}
+          onAnimationEnd={() => setGone((all) => all.filter((o) => o.at !== g.at))}
+        />
+      ))}
+      {lines.map((at) => {
+        const left = leftIn(at, { t0, t1 });
+        return <span key={at} className="pw-trace-vline" style={{ left: `${left}%`, '--from': `${from.get(at) ?? left}%` } as CSSProperties} />;
+      })}
+    </>
+  );
+}
+
 function EquityTrace({ model, empty, stale, children }: { model: TraceModel | null; empty: string; stale: boolean; children: ReactNode }) {
   const [cursor, setCursor] = useState<number | null>(null);
   const readoutRef = useRef<HTMLSpanElement>(null);
@@ -384,8 +536,7 @@ function EquityTrace({ model, empty, stale, children }: { model: TraceModel | nu
   // Headroom above and below for the high and low labels.
   const pad = (hi - lo) * 0.4 || Math.max(1, Math.abs(baseline) * 0.001);
   const y = (v: number) => TRACE_H - ((v - (lo - pad)) / (hi - lo + 2 * pad)) * TRACE_H;
-  const line = points.map((p) => `${x(p.at).toFixed(1)},${y(p.equity).toFixed(1)}`).join(' ');
-  const baseY = y(baseline);
+  const line = points.map((p): Pt => [x(p.at), y(p.equity)]);
   const moved = Math.max(...values) > Math.min(...values);
   const high = points.reduce((best, p) => (p.equity > best.equity ? p : best), first);
   const low = points.reduce((worst, p) => (p.equity < worst.equity ? p : worst), first);
@@ -401,6 +552,13 @@ function EquityTrace({ model, empty, stale, children }: { model: TraceModel | nu
   const index = cursor === null ? null : Math.min(cursor, lastIndex);
   const shown = points[index ?? lastIndex] ?? last;
   const here = flags.filter((e) => nearest(Date.parse(e.at)) === (index ?? lastIndex));
+  // Flags closer than 1.5% of the plot's width merge into the worst of them, so even on a phone none stacks on another.
+  const marks: EventRecord[] = [];
+  for (const e of flags.toSorted((a, b) => Date.parse(a.at) - Date.parse(b.at))) {
+    const prev = marks.at(-1);
+    if (!prev || x(e.at) - x(prev.at) >= TRACE_W * 0.015) marks.push(e);
+    else if ((FLAG_RANK[e.severity] ?? 0) > (FLAG_RANK[prev.severity] ?? 0)) marks[marks.length - 1] = e;
+  }
   const worst = here.reduce<EventRecord | null>((w, e) => (!w || (FLAG_RANK[e.severity] ?? 0) > (FLAG_RANK[w.severity] ?? 0) ? e : w), null);
   const change = shown.equity - baseline;
   const scrub = (e: PointerEvent<HTMLDivElement>) => {
@@ -437,18 +595,14 @@ function EquityTrace({ model, empty, stale, children }: { model: TraceModel | nu
           onFocus={() => setCursor((c) => c ?? lastIndex)}
           onBlur={() => setCursor(null)}
         >
+          <TraceGrid lines={model.grid} t0={t0} t1={t1} />
           <svg viewBox={`0 0 ${TRACE_W} ${TRACE_H}`} preserveAspectRatio="none" aria-hidden>
             {[0.25, 0.5, 0.75].map((f) => (
               <line key={f} className="pw-trace-grid" x1={0} x2={TRACE_W} y1={TRACE_H * f} y2={TRACE_H * f} />
             ))}
-            {model.grid.map((g) => (
-              <line key={g} className="pw-trace-grid" x1={x(new Date(g).toISOString())} x2={x(new Date(g).toISOString())} y1={0} y2={TRACE_H} />
-            ))}
-            <line className="pw-trace-base" x1={0} x2={TRACE_W} y1={baseY} y2={baseY} />
             {index !== null && <line className="pw-trace-cursor" x1={x(shown.at)} x2={x(shown.at)} y1={0} y2={TRACE_H} />}
-            <polyline className="pw-trace-line" points={line} />
           </svg>
-          <span className="pw-trace-now" style={at(last)} />
+          <TraceStroke t0={t0} t1={t1} line={line} base={y(baseline)} />
           {index !== null && (
             <>
               <span className="pw-trace-cursor-dot" style={at(shown)} />
@@ -486,8 +640,7 @@ function EquityTrace({ model, empty, stale, children }: { model: TraceModel | nu
               </span>
             </>
           )}
-          {/* Flags draw over the high and low labels, so a label never hides a halt. */}
-          {flags.map((e) => (
+          {marks.map((e) => (
             <span key={e.id} className={`pw-trace-flag pw-event-${e.severity}`} style={{ left: `${(x(e.at) / TRACE_W) * 100}%` }} />
           ))}
         </div>
@@ -745,7 +898,7 @@ function ResumeSheet({ strategy, onClose, onSent }: { strategy: Strategy; onClos
     () => sendCommand({ kind: 'resume-strategy', strategyId: strategy.id }),
     () => {
       onSent();
-      onClose();
+      leaveSheet(onClose);
     },
   );
   return (
@@ -794,10 +947,12 @@ export function useArrivals(events: EventRecord[]) {
 
 const SEVERITY_WORD: Record<Severity, string> = { info: 'INFO', warn: 'WARN', error: 'ERROR', halt: 'HALT' };
 
-export function EventRow({ group, fresh = false }: { group: EventGroup; fresh?: boolean }) {
+export function EventRow({ group, fresh }: { group: EventGroup; fresh: (e: EventRecord) => boolean }) {
   const { latest, earliest, count: n } = group;
   return (
-    <li className={`pw-event pw-event-${latest.severity} ${fresh ? 'pw-event-new' : ''}`}>
+    <li className={`pw-event pw-event-${latest.severity} ${fresh(earliest) ? 'pw-event-new' : ''}`}>
+      {/* A new row drops in once. A repeat joining it only flashes the row, so the row itself stays put. */}
+      {fresh(latest) && <span key={latest.id} className="pw-event-flash" aria-hidden />}
       <span className="pw-event-time pw-small">{localClock(latest.at)}</span>
       <span className={`pw-event-sev pw-small pw-sev-${latest.severity}`}>{SEVERITY_WORD[latest.severity]}</span>
       <span className="pw-event-msg pw-body">{latest.message}</span>
@@ -809,8 +964,9 @@ export function EventRow({ group, fresh = false }: { group: EventGroup; fresh?: 
 export function EventLog({ events, fresh }: { events: EventGroup[]; fresh: (e: EventRecord) => boolean }) {
   return (
     <ol className="pw-events">
+      {/* Keyed by a run's first event, which stays the same as repeats join on top. */}
       {events.map((g) => (
-        <EventRow key={g.latest.id} group={g} fresh={fresh(g.latest)} />
+        <EventRow key={g.earliest.id} group={g} fresh={fresh} />
       ))}
     </ol>
   );
@@ -856,6 +1012,15 @@ export function PasscodeInput({ value, onChange, error, attempt = 0, help }: { v
   );
 }
 
+/** Plays the open sheet out, a short fall and fade, then runs then, so a sheet never just vanishes. A second call while it leaves does nothing. */
+export function leaveSheet(then: () => void) {
+  const sheet = document.querySelector<HTMLDialogElement>('dialog.pw-sheet[open]');
+  if (sheet?.dataset.leaving !== undefined) return;
+  if (!sheet || matchMedia('(prefers-reduced-motion: reduce)').matches) return then();
+  sheet.dataset.leaving = '';
+  sheet.animate([{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '0 6px' }], { duration: 160, easing: 'ease-in', fill: 'forwards' }).finished.then(then, then);
+}
+
 export function ConfirmSheet(props: {
   title: ReactNode;
   confirmLabel: string;
@@ -891,12 +1056,12 @@ export function ConfirmSheet(props: {
       aria-labelledby={titleId}
       onCancel={(e) => {
         e.preventDefault();
-        onCancel();
+        leaveSheet(onCancel);
       }}
       onPointerDown={(e) => (pressedOn.current = e.target)}
       // A key still held from Hold to flatten keeps repeating into the sheet; without this it presses Cancel.
       onKeyDown={(e) => e.repeat && (e.key === 'Enter' || e.key === ' ') && e.preventDefault()}
-      onClick={(e) => e.target === e.currentTarget && pressedOn.current === e.currentTarget && onCancel()}
+      onClick={(e) => e.target === e.currentTarget && pressedOn.current === e.currentTarget && leaveSheet(onCancel)}
     >
       <form className="pw-sheet-form" onSubmit={submit}>
         <h2 id={titleId} className="pw-title">
@@ -909,7 +1074,7 @@ export function ConfirmSheet(props: {
           </p>
         )}
         <div className="pw-sheet-actions">
-          <button ref={cancelRef} type="button" className="pw-btn" onClick={onCancel}>
+          <button ref={cancelRef} type="button" className="pw-btn" onClick={() => leaveSheet(onCancel)}>
             Cancel
           </button>
           <button type="submit" className={`pw-btn ${confirmClass}`} disabled={busy}>
