@@ -12,18 +12,25 @@ import { duration, money, qty } from '../shared/format.ts';
 import { isOpenOrder } from '../shared/orders.ts';
 import * as t from '../shared/schema.ts';
 import { AlpacaBroker } from './alpaca-broker.ts';
-import { clientOrderId, strategyPrefix, type Broker, type BrokerOrder, type Clock } from './broker.ts';
-import { breachReason, evaluateLimits } from './limits.ts';
+import { clientOrderId, strategyPrefix, type Broker, type BrokerOrder, type Clock, type OrderRequest } from './broker.ts';
+import { breachReason, evaluateLimits, tradesLimit } from './limits.ts';
 import { marketSession } from './market-session.ts';
+import { entriesToday, gateEntry, lastFillAt, riskExit, type ExitReason } from './rules.ts';
 import { SimBroker } from './sim-broker.ts';
 import { decide } from './sma-cross.ts';
 import { todayStats } from './stats.ts';
 import { step, type Effect, type LifecycleInput } from './strategy-lifecycle.ts';
 
 const TICK_MS = 5_000;
-const ERROR_DEDUPE_MS = 60_000;
+const LOG_DEDUPE_MS = 60_000;
+const EXIT_RETRY_MS = 60_000;
 const PRUNE_EVERY_MS = 3_600_000;
 const KEEP_SAMPLES_MS = 30 * 86_400_000;
+// A refused exit leaves the position open, so it logs at error: ntfy fires only on error and halt.
+const EXIT_LOG: Record<ExitReason, { prefix: string; severity: Severity; refused: Severity }> = {
+  stop: { prefix: 'Stop hit: ', severity: 'warn', refused: 'error' },
+  'flat-by': { prefix: 'Flat by close: ', severity: 'info', refused: 'error' },
+};
 
 const env = parseEnv(engineEnvSchema);
 const mode: Mode = env.PITWALL_BROKER === 'alpaca' && env.PITWALL_LIVE ? 'live' : 'paper';
@@ -32,6 +39,16 @@ const broker: Broker =
     ? new AlpacaBroker({ keyId: env.ALPACA_KEY_ID, secretKey: env.ALPACA_SECRET_KEY, live: env.PITWALL_LIVE })
     : new SimBroker();
 const limitConfig = { dailyLossPct: env.PITWALL_DAILY_LOSS_PCT, maxRejections: env.PITWALL_MAX_REJECTIONS, brokerSilenceS: env.PITWALL_BROKER_SILENCE_S };
+const ruleConfig = {
+  entryDelayMin: env.PITWALL_ENTRY_DELAY_MIN,
+  entryCutoffMin: env.PITWALL_ENTRY_CUTOFF_MIN,
+  flatBeforeCloseMin: env.PITWALL_FLAT_BEFORE_CLOSE_MIN,
+  stopPct: env.PITWALL_STOP_PCT,
+  riskPct: env.PITWALL_RISK_PCT,
+  maxPositionPct: env.PITWALL_MAX_POSITION_PCT,
+  cashBufferPct: env.PITWALL_CASH_BUFFER_PCT,
+  maxTradesPerDay: env.PITWALL_MAX_TRADES_PER_DAY,
+};
 const configured = env.PITWALL_STRATEGIES;
 const strategyIds = new Map<string, StrategyId>(configured.map((s) => [s.id, s.id]));
 const db = openDb(env.PITWALL_DB);
@@ -44,13 +61,15 @@ let consecutiveRejections = 0;
 let latest: { account: Account; positions: Position[]; clock: Clock; orders: BrokerOrder[] } | null = null;
 let lastPruneAt = 0;
 let lastTickAt = Date.now();
-const recentErrors = new Map<string, number>();
+const recentLogs = new Map<string, number>();
+const exitAttemptAt = new Map<StrategyId, number>();
 
 const message = (err: unknown) => {
   if (err instanceof Error && err.name === 'TimeoutError') return 'no reply within 10s.';
   return err instanceof Error ? err.message : String(err);
 };
 const strategyOf = (o: BrokerOrder) => strategyIds.get(strategyPrefix(o.clientOrderId)) ?? null;
+const ownEntries = (orders: BrokerOrder[]) => entriesToday(orders.filter((o) => strategyOf(o) !== null));
 
 function logEvent(severity: Severity, text: string, source: string) {
   db.insert(t.events).values({ at: new Date().toISOString(), severity, message: text, source }).run();
@@ -59,12 +78,16 @@ function logEvent(severity: Severity, text: string, source: string) {
   }
 }
 
-function logError(text: string, source: string) {
+function logOnce(severity: Severity, text: string, source: string) {
   const now = Date.now();
-  for (const [m, at] of recentErrors) if (now - at >= ERROR_DEDUPE_MS) recentErrors.delete(m);
-  if (recentErrors.has(text)) return;
-  recentErrors.set(text, now);
-  logEvent('error', text, source);
+  for (const [m, at] of recentLogs) if (now - at >= LOG_DEDUPE_MS) recentLogs.delete(m);
+  if (recentLogs.has(text)) return;
+  recentLogs.set(text, now);
+  logEvent(severity, text, source);
+}
+
+function logError(text: string, source: string) {
+  logOnce('error', text, source);
 }
 
 async function runEffect(effect: Effect) {
@@ -106,22 +129,57 @@ async function piHealth(): Promise<Omit<Health, 'brokerConnected'>> {
   return { cpuTempC, throttled, diskUsedPct, memUsedBytes: os.totalmem() - os.freemem(), memTotalBytes: os.totalmem(), uptimeS: os.uptime() };
 }
 
+async function submit(strategyId: StrategyId, request: Omit<OrderRequest, 'clientOrderId'>, now: Date, { prefix = '', severity = 'info', refused = 'warn' }: { prefix?: string; severity?: Severity; refused?: Severity } = {}) {
+  const order = await broker.submitOrder({ ...request, clientOrderId: clientOrderId(strategyId, now) });
+  saveOrders([order]);
+  const what = `${prefix}${request.side === 'buy' ? 'Buy' : 'Sell'} ${qty(request.qty)} ${request.symbol}`;
+  if (order.status === 'rejected') {
+    consecutiveRejections++;
+    logEvent(refused, `${what} rejected by broker.`, strategyId);
+  } else {
+    consecutiveRejections = 0;
+    logEvent(severity, order.filledAvgPrice === null ? `${what} ${order.status}.` : `${what} filled at ${money(order.filledAvgPrice)}.`, strategyId);
+  }
+  return order;
+}
+
 async function runStrategies(now: Date, view: NonNullable<typeof latest>) {
+  let cashLeft = view.account.cash;
+  let entries = ownEntries(view.orders);
   for (const s of configured) {
-    if (states.get(s.id)?.kind !== 'running') continue;
-    if (view.orders.some((o) => strategyOf(o) === s.id && isOpenOrder(o))) continue;
+    const state = states.get(s.id);
+    const mine = view.orders.filter((o) => strategyOf(o) === s.id);
+    if (!state || mine.some(isOpenOrder)) continue;
     try {
-      const decision = decide(await broker.getBars(s.symbol, 31), view.positions.find((p) => p.symbol === s.symbol)?.qty ?? 0);
+      const position = view.positions.find((p) => p.symbol === s.symbol);
+      const exit = riskExit(state, position, view.clock, now, ruleConfig);
+      if (exit && position) {
+        // A halt ends the rejection limit's stop on attempts, so this paces a refused exit. A throw skips the set and retries next tick.
+        if (now.getTime() - (exitAttemptAt.get(s.id) ?? 0) >= EXIT_RETRY_MS) {
+          await submit(s.id, { symbol: s.symbol, side: 'sell', qty: position.qty }, now, EXIT_LOG[exit]);
+          exitAttemptAt.set(s.id, now.getTime());
+        }
+        continue;
+      }
+      if (state.kind !== 'running') continue;
+
+      const closes = await broker.getBars(s.symbol, 31);
+      const decision = decide(closes, position?.qty ?? 0);
       if (!decision) continue;
-      const order = await broker.submitOrder({ symbol: s.symbol, ...decision, clientOrderId: clientOrderId(s.id, now) });
-      saveOrders([order]);
-      const what = `${decision.side === 'buy' ? 'Buy' : 'Sell'} ${qty(decision.qty)} ${s.symbol}`;
-      if (order.status === 'rejected') {
-        consecutiveRejections++;
-        logEvent('warn', `${what} rejected by broker.`, s.id);
-      } else {
-        consecutiveRejections = 0;
-        logEvent('info', order.filledAvgPrice === null ? `${what} ${order.status}.` : `${what} filled at ${money(order.filledAvgPrice)}.`, s.id);
+      if (decision.side === 'sell') {
+        await submit(s.id, { symbol: s.symbol, ...decision }, now);
+        continue;
+      }
+      const price = closes.at(-1) ?? 0;
+      const verdict = gateEntry({ clock: view.clock, now, entriesToday: entries, lastFillAt: lastFillAt(mine), price, equity: view.account.equity, cash: cashLeft, ceiling: decision.qty }, ruleConfig);
+      if ('blocked' in verdict) {
+        logOnce('info', `Buy ${s.symbol} skipped: ${verdict.blocked}.`, s.id);
+        continue;
+      }
+      const order = await submit(s.id, { symbol: s.symbol, side: 'buy', qty: verdict.qty }, now);
+      if (order.status !== 'rejected') {
+        cashLeft -= verdict.qty * price;
+        entries++;
       }
     } catch (err) {
       logError(`${s.id}: ${message(err)}`, s.id);
@@ -170,8 +228,8 @@ async function tick() {
   }
 
   const account = latest?.account ?? { equity: 0, lastEquity: 0, buyingPower: 0, cash: 0 };
-  const limits = evaluateLimits({ account, consecutiveRejections, lastBrokerOkAt, now }, limitConfig);
-  for (const l of limits) if (l.breached) await apply({ type: 'limit-breached', limit: l.id, reason: breachReason(l) }, iso);
+  const haltLimits = evaluateLimits({ account, consecutiveRejections, lastBrokerOkAt, now }, limitConfig);
+  for (const l of haltLimits) if (l.breached) await apply({ type: 'limit-breached', limit: l.id, reason: breachReason(l) }, iso);
 
   const market = latest ? marketSession(latest.clock, now) : { state: 'closed' as const, nextChangeAt: iso };
   if (latest && brokerConnected && market.state === 'open') await runStrategies(now, latest);
@@ -184,7 +242,7 @@ async function tick() {
   });
   const health: Health = { brokerConnected, ...(await piHealth()) };
 
-  const row = { mode, heartbeatAt: iso, commandCursor, account, market, positions, strategies, limits, health };
+  const row = { mode, heartbeatAt: iso, commandCursor, account, market, positions, strategies, limits: [...haltLimits, tradesLimit(ownEntries(latest?.orders ?? []), env.PITWALL_MAX_TRADES_PER_DAY)], health };
   db.insert(t.status).values({ id: 1, ...row }).onConflictDoUpdate({ target: t.status.id, set: row }).run();
 
   if (brokerConnected) {

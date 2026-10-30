@@ -6,6 +6,7 @@ import { atET } from '../shared/et.ts';
 const START_CASH = 50_000;
 const BAR_MS = 5_000;
 const HISTORY = 200;
+const ALWAYS_MID_SESSION_MS = 4 * 3_600_000;
 
 function seededRandom(seed: string) {
   let a = 2166136261;
@@ -70,7 +71,7 @@ export class SimBroker implements Broker {
 
   async getClock(): Promise<Clock> {
     const now = new Date();
-    return { isOpen: true, nextOpen: atET(new Date(now.getTime() + 86_400_000), '09:30'), nextClose: atET(now, '16:00') };
+    return { isOpen: true, sessionOpen: new Date(now.getTime() - ALWAYS_MID_SESSION_MS).toISOString(), nextOpen: atET(new Date(now.getTime() + 86_400_000), '09:30'), nextClose: new Date(now.getTime() + ALWAYS_MID_SESSION_MS).toISOString() };
   }
 
   async getBars(symbol: string, limit: number): Promise<number[]> {

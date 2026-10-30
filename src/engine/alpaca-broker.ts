@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Account, Position, StrategyId } from '../shared/domain.ts';
+import { atET } from '../shared/et.ts';
 import { strategyPrefix, type Broker, type BrokerOrder, type Clock, type OrderRequest } from './broker.ts';
 
 const num = z.coerce.number();
@@ -23,7 +24,7 @@ const positionSchema = z
 
 const clockSchema = z
   .object({ is_open: z.boolean(), next_open: z.string(), next_close: z.string() })
-  .transform((c): Clock => ({ isOpen: c.is_open, nextOpen: new Date(c.next_open).toISOString(), nextClose: new Date(c.next_close).toISOString() }));
+  .transform((c): Clock => ({ isOpen: c.is_open, sessionOpen: atET(new Date(), '09:30'), nextOpen: new Date(c.next_open).toISOString(), nextClose: new Date(c.next_close).toISOString() }));
 
 const orderSchema = z
   .object({

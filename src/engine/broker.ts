@@ -1,6 +1,6 @@
 import type { Account, Order, Position, StrategyId } from '../shared/domain.ts';
 
-export type Clock = { isOpen: boolean; nextOpen: string; nextClose: string };
+export type Clock = { isOpen: boolean; sessionOpen: string; nextOpen: string; nextClose: string };
 export type BrokerOrder = Omit<Order, 'strategyId'> & { clientOrderId: string; updatedAt: string };
 export type OrderRequest = { symbol: string; side: 'buy' | 'sell'; qty: number; clientOrderId: string };
 

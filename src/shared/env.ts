@@ -18,10 +18,19 @@ const engineBase = z.object({
       }),
     )
     .pipe(z.array(z.object({ id: strategyIdSchema, symbol: z.string().regex(/^[A-Z][A-Z.]*$/, 'symbols are uppercase tickers') })).min(1))
-    .refine((list) => new Set(list.map((s) => s.id)).size === list.length, 'strategy ids must be unique'),
+    .refine((list) => new Set(list.map((s) => s.id)).size === list.length, 'strategy ids must be unique')
+    .refine((list) => new Set(list.map((s) => s.symbol)).size === list.length, 'each symbol can have only one strategy, because exits sell the whole position'),
   PITWALL_DAILY_LOSS_PCT: z.coerce.number().positive().default(2),
   PITWALL_MAX_REJECTIONS: z.coerce.number().int().positive().default(4),
   PITWALL_BROKER_SILENCE_S: z.coerce.number().int().positive().default(30),
+  PITWALL_ENTRY_DELAY_MIN: z.coerce.number().int().min(0).default(31),
+  PITWALL_ENTRY_CUTOFF_MIN: z.coerce.number().int().min(0).default(30),
+  PITWALL_FLAT_BEFORE_CLOSE_MIN: z.coerce.number().int().min(0).default(5),
+  PITWALL_STOP_PCT: z.coerce.number().min(0.05).max(100).default(1),
+  PITWALL_RISK_PCT: z.coerce.number().positive().max(100).default(1),
+  PITWALL_MAX_POSITION_PCT: z.coerce.number().positive().max(100).default(75),
+  PITWALL_CASH_BUFFER_PCT: z.coerce.number().min(0).max(100).default(10),
+  PITWALL_MAX_TRADES_PER_DAY: z.coerce.number().int().positive().default(3),
 });
 
 export const engineEnvSchema = z.discriminatedUnion('PITWALL_BROKER', [

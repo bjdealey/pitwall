@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mock, test } from 'node:test';
+import { atET } from '../shared/et.ts';
 import { AlpacaBroker } from './alpaca-broker.ts';
 
 const broker = new AlpacaBroker({ keyId: 'test-key', secretKey: 'test-secret', live: false });
@@ -61,4 +62,14 @@ test('other broker failures throw with the broker message', async (t) => {
   t.after(() => mock.restoreAll());
   reply(500, { message: 'internal error' });
   await assert.rejects(broker.getClock(), /Alpaca 500 on GET \/v2\/clock: internal error/);
+});
+
+test('the clock opens the session at 09:30 ET on an early close too', async (t) => {
+  t.after(() => mock.restoreAll());
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-27T15:00:00Z') });
+  reply(200, { is_open: true, next_open: '2026-11-30T09:30:00-05:00', next_close: '2026-11-27T13:00:00-05:00' });
+  const clock = await broker.getClock();
+  assert.equal(clock.sessionOpen, atET(new Date(), '09:30'));
+  assert.equal(clock.sessionOpen, '2026-11-27T14:30:00.000Z');
+  assert.equal(clock.nextClose, '2026-11-27T18:00:00.000Z');
 });
