@@ -1,6 +1,6 @@
 import { evaluateLimits } from '../engine/limits.ts';
-import type { Command, EventRecord, Order, Position, Snapshot, Strategy, StrategyId } from './domain.ts';
-import { atET } from './et.ts';
+import type { Command, DailyEquity, EventRecord, Order, Position, Snapshot, Strategy, StrategyId } from './domain.ts';
+import { atET, et } from './et.ts';
 import { money, qty } from './format.ts';
 
 const S = 1_000;
@@ -60,6 +60,20 @@ export function demoSnapshot(now: Date): Snapshot {
   };
   snapshot.limits = evaluateLimits({ account, consecutiveRejections: 0, lastBrokerOkAt: new Date(t - 2 * S), now }, LIMITS);
   return snapshot;
+}
+
+/** Two years of weekday closes for the demo's longer trace ranges, oldest first, ending yesterday at the sample's previous close. */
+export function demoDailyEquity(now: Date): DailyEquity[] {
+  const day = new Date(`${et(now).date}T00:00:00Z`);
+  const wave = (k: number) => 40 * k - 900 * Math.sin(k / 9) - 350 * Math.sin(k / 2.3);
+  const days: DailyEquity[] = [];
+  for (let k = 0; days.length < 520; ) {
+    day.setUTCDate(day.getUTCDate() - 1);
+    if (day.getUTCDay() === 0 || day.getUTCDay() === 6) continue;
+    days.push({ date: day.toISOString().slice(0, 10), equity: cents(100_000 - wave(k) + wave(0)) });
+    k += 1;
+  }
+  return days.reverse();
 }
 
 /**

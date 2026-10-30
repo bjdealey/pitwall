@@ -1,10 +1,11 @@
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Maximize, Minimize } from 'lucide-react';
 import { createContext, use, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import type { Account, EventRecord, Health, Limit, MarketSession, Mode, Position, Severity, Strategy, StrategyState } from '../shared/domain.ts';
+import type { Account, DailyEquity, EventRecord, Health, Limit, MarketSession, Mode, Position, Severity, Strategy, StrategyState } from '../shared/domain.ts';
 import { atET, et } from '../shared/et.ts';
-import { changePercent, count, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
-import { DEMO, HEARTBEAT_STALE_MS, sendCommand, usePost } from './data.ts';
+import { calendarDate, changePercent, count, duration, etTime, glyph, localClock, money, pct, signedMoney, tone, type Tone } from '../shared/format.ts';
+import { DAILY_RANGES, rangeCloses, type RangeId } from '../shared/ranges.ts';
+import { DEMO, HEARTBEAT_STALE_MS, sendCommand, useDailyHistory, usePost } from './data.ts';
 
 export const toneClass: Record<Tone, string> = { up: 'pw-up', down: 'pw-down', flat: 'pw-flat' };
 
@@ -96,6 +97,24 @@ export function MarketChip({ market, now }: { market: MarketSession; now: number
         {etTime(market.nextChangeAt)}
       </span>
     </span>
+  );
+}
+
+/** Full screen for a wall display, like a charting app's fullscreen mode. Shown only where the browser allows it, and from 900px. */
+export function FullscreenButton() {
+  const [full, setFull] = useState(() => document.fullscreenElement !== null);
+  useEffect(() => {
+    const sync = () => setFull(document.fullscreenElement !== null);
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+  if (!document.fullscreenEnabled) return null;
+  const Icon = full ? Minimize : Maximize;
+  return (
+    <button type="button" className="pw-btn pw-btn-compact pw-fullscreen" onClick={() => (full ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => {})}>
+      <Icon className="pw-icon" aria-hidden />
+      <span>{full ? 'Exit full screen' : 'Full screen'}</span>
+    </button>
   );
 }
 
@@ -220,12 +239,27 @@ export function PrivacyToggle() {
 const TRACE_W = 1000;
 const TRACE_H = 200;
 
-/** The pit board: equity, today's change and the session's reference points on stacked slats, beside the day's trace. */
-export function PitBoard({ account, points, events, stale }: { account: Account; points: { at: string; equity: number }[]; events: EventRecord[]; stale: boolean }) {
+const RANGE_PRESETS = [{ id: 'today', label: 'Today' }, ...DAILY_RANGES] as const;
+
+/** The pit board: equity, today's change and the session's reference points on stacked slats, beside the trace and its range presets. */
+export function PitBoard({ account, points, events, stale }: { account: Account; points: Sample[]; events: EventRecord[]; stale: boolean }) {
   const change = account.equity - account.lastEquity;
   const changePct = account.lastEquity ? (change / account.lastEquity) * 100 : 0;
   const t = tone(change);
-  const high = points.reduce<{ at: string; equity: number } | null>((best, p) => (!best || p.equity > best.equity ? p : best), null);
+  const high = points.reduce<Sample | null>((best, p) => (!best || p.equity > best.equity ? p : best), null);
+  const [range, setRange] = useState<RangeId>('today');
+  const [asked, setAsked] = useState(0);
+  const today = et(new Date()).date;
+  const daily = DAILY_RANGES.find((r) => r.id === range);
+  const history = useDailyHistory(daily ? today : null, asked);
+  const model = !daily ? sessionModel(points, account.lastEquity, events) : history.kind === 'ready' ? rangeModel(rangeCloses(history.days, daily.start(today), today, account.equity)) : null;
+  const empty = !daily
+    ? 'The trace fills in as the engine records equity through the day.'
+    : history.kind === 'loading'
+      ? 'Loading daily closes…'
+      : history.kind === 'failed'
+        ? 'Daily closes did not load. Pick the range again to retry.'
+        : 'Daily closes build up as the engine runs, one a day.';
   return (
     <section className="pw-board-wrap" aria-label="Equity">
       <div className="pw-slats">
@@ -255,14 +289,71 @@ export function PitBoard({ account, points, events, stale }: { account: Account;
           </div>
         </div>
       </div>
-      <EquityTrace points={points} baseline={account.lastEquity} high={high} events={events} stale={stale} />
+      <EquityTrace model={model} empty={empty} stale={stale}>
+        <div className="pw-trace-ranges" role="group" aria-label="Trace range">
+          {RANGE_PRESETS.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              className="pw-trace-range pw-small"
+              aria-pressed={range === r.id}
+              onClick={() => {
+                setRange(r.id);
+                setAsked((n) => n + 1);
+              }}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </EquityTrace>
     </section>
   );
 }
 
+type Sample = { at: string; equity: number };
+
+/** What the trace draws: samples against a baseline across t0 to t1, its gridlines, how to read a time, the words after a change, and any flags. */
+type TraceModel = { points: Sample[]; baseline: number; baselineLabel: string; t0: number; t1: number; grid: number[]; when: (iso: string) => string; since: string; flags: EventRecord[]; tags: boolean };
+
 const FLAG_RANK: Partial<Record<Severity, number>> = { warn: 1, error: 2, halt: 3 };
 
-function EquityTrace({ points, baseline, high, events, stale }: { points: { at: string; equity: number }[]; baseline: number; high: { at: string; equity: number } | null; events: EventRecord[]; stale: boolean }) {
+/** Today: the session against the previous close, ET times, hour lines, flags and the tide-chart high and low. */
+function sessionModel(points: Sample[], baseline: number, events: EventRecord[]): TraceModel | null {
+  const first = points[0];
+  const last = points.at(-1);
+  if (!first || !last || points.length < 2) return null;
+  // The axis spans the regular session, so the trace grows across the day and the empty part is the time left.
+  // shortcut: early-close days still run to 16:00, Alpaca's /v2/calendar is the upgrade.
+  const day = new Date(first.at);
+  const t0 = Math.min(Date.parse(first.at), Date.parse(atET(day, '09:30')));
+  const t1 = Math.max(Date.parse(last.at), Date.parse(atET(day, '16:00')));
+  const flags = events.filter((e) => FLAG_RANK[e.severity] && Date.parse(e.at) >= t0 && Date.parse(e.at) <= t1).sort((a, b) => (FLAG_RANK[a.severity] ?? 0) - (FLAG_RANK[b.severity] ?? 0));
+  const grid = [10, 11, 12, 13, 14, 15].map((h) => Date.parse(atET(day, `${h}:00`)));
+  return { points, baseline, baselineLabel: 'Previous close', t0, t1, grid, when: etTime, since: 'today', flags, tags: true };
+}
+
+/** A longer range: daily closes against the first close in it, dated, with a line at each month start, or each year start past about 13 months. */
+function rangeModel(closes: DailyEquity[]): TraceModel | null {
+  const points = closes.map((d) => ({ at: `${d.date}T00:00:00.000Z`, equity: d.equity }));
+  const first = points[0];
+  const last = points.at(-1);
+  if (!first || !last || points.length < 2) return null;
+  const t0 = Date.parse(first.at);
+  const t1 = Date.parse(last.at);
+  const years = t1 - t0 > 400 * 86_400_000;
+  const step = years ? 12 : 1;
+  const grid: number[] = [];
+  const mark = new Date(t0);
+  mark.setUTCDate(1);
+  if (years) mark.setUTCMonth(0);
+  for (mark.setUTCMonth(mark.getUTCMonth() + step); mark.getTime() < t1; mark.setUTCMonth(mark.getUTCMonth() + step)) grid.push(mark.getTime());
+  // Dates carry the year once the range crosses one, so a 1Y axis does not read Oct 29 to Oct 29.
+  const when = (iso: string) => calendarDate(iso, first.at.slice(0, 4) !== last.at.slice(0, 4));
+  return { points, baseline: first.equity, baselineLabel: 'First close', t0, t1, grid, when, since: `since ${when(first.at)}`, flags: [], tags: false };
+}
+
+function EquityTrace({ model, empty, stale, children }: { model: TraceModel | null; empty: string; stale: boolean; children: ReactNode }) {
   const [cursor, setCursor] = useState<number | null>(null);
   const readoutRef = useRef<HTMLSpanElement>(null);
   // The readout centres on the cursor but stops at the plot's edges. Reset first so the width is the content's.
@@ -274,42 +365,38 @@ function EquityTrace({ points, baseline, high, events, stale }: { points: { at: 
     const cx = (Number(tag.dataset.x) / 100) * plot.clientWidth;
     tag.style.left = `${Math.max(0, Math.min(cx - tag.offsetWidth / 2, plot.clientWidth - tag.offsetWidth))}px`;
   });
-  const first = points[0];
-  const last = points[points.length - 1];
-  if (!first || !last || points.length < 2) {
+  const first = model?.points[0];
+  const last = model?.points.at(-1);
+  if (!model || !first || !last) {
     return (
       <figure className="pw-trace pw-trace-empty">
-        <p className="pw-label">The trace fills in as the engine records equity through the day.</p>
+        <p className="pw-label">{empty}</p>
+        {children}
       </figure>
     );
   }
-  // The axis spans the regular session, so the trace grows across the day and the empty part is the time left.
-  // shortcut: early-close days still run to 16:00, Alpaca's /v2/calendar is the upgrade.
-  const day = new Date(first.at);
-  const t0 = Math.min(Date.parse(first.at), Date.parse(atET(day, '09:30')));
-  const t1 = Math.max(Date.parse(last.at), Date.parse(atET(day, '16:00')));
+  const { points, baseline, t0, t1, when, since, flags } = model;
   const span = t1 - t0 || 1;
   const x = (at: string) => ((Date.parse(at) - t0) / span) * TRACE_W;
-  const hours = [10, 11, 12, 13, 14, 15].map((h) => x(atET(day, `${h}:00`)));
   const values = points.map((p) => p.equity);
   const lo = Math.min(...values, baseline);
   const hi = Math.max(...values, baseline);
-  // Headroom above and below for the day high and low labels.
+  // Headroom above and below for the high and low labels.
   const pad = (hi - lo) * 0.4 || Math.max(1, Math.abs(baseline) * 0.001);
   const y = (v: number) => TRACE_H - ((v - (lo - pad)) / (hi - lo + 2 * pad)) * TRACE_H;
   const line = points.map((p) => `${x(p.at).toFixed(1)},${y(p.equity).toFixed(1)}`).join(' ');
   const baseY = y(baseline);
   const moved = Math.max(...values) > Math.min(...values);
+  const high = points.reduce((best, p) => (p.equity > best.equity ? p : best), first);
   const low = points.reduce((worst, p) => (p.equity < worst.equity ? p : worst), first);
-  const showHigh = moved && !stale && high !== null && high.equity > baseline;
-  const showLow = moved && !stale && low.equity < baseline;
-  const at = (p: { at: string; equity: number }) => ({ left: `${(x(p.at) / TRACE_W) * 100}%`, top: `${(y(p.equity) / TRACE_H) * 100}%` });
+  const showHigh = model.tags && moved && !stale && high.equity > baseline;
+  const showLow = model.tags && moved && !stale && low.equity < baseline;
+  const at = (p: Sample) => ({ left: `${(x(p.at) / TRACE_W) * 100}%`, top: `${(y(p.equity) / TRACE_H) * 100}%` });
   // Near either end a label hangs inward from its dot, so it stays inside the plot.
-  const edge = (p: { at: string }) => (x(p.at) < TRACE_W * 0.12 ? 'pw-trace-tag-start' : x(p.at) > TRACE_W * 0.88 ? 'pw-trace-tag-end' : '');
+  const edge = (p: Sample) => (x(p.at) < TRACE_W * 0.12 ? 'pw-trace-tag-start' : x(p.at) > TRACE_W * 0.88 ? 'pw-trace-tag-end' : '');
   // The cursor snaps to the nearest sample, and each flag belongs to the sample nearest it.
   const times = points.map((p) => Date.parse(p.at));
   const nearest = (t: number) => times.reduce((best, ti, i) => (Math.abs(ti - t) < Math.abs((times[best] ?? ti) - t) ? i : best), 0);
-  const flags = events.filter((e) => FLAG_RANK[e.severity] && Date.parse(e.at) >= t0 && Date.parse(e.at) <= t1).sort((a, b) => (FLAG_RANK[a.severity] ?? 0) - (FLAG_RANK[b.severity] ?? 0));
   const lastIndex = points.length - 1;
   const index = cursor === null ? null : Math.min(cursor, lastIndex);
   const shown = points[index ?? lastIndex] ?? last;
@@ -330,85 +417,89 @@ function EquityTrace({ points, baseline, high, events, stale }: { points: { at: 
   };
   return (
     <figure className={`pw-trace ${toneClass[stale ? 'flat' : tone(last.equity - baseline)]}`}>
-      <div
-        className={`pw-trace-plot ${index === null ? '' : 'pw-trace-scrubbing'}`}
-        role="slider"
-        tabIndex={0}
-        aria-label="Equity through the day"
-        aria-valuemin={0}
-        aria-valuemax={lastIndex}
-        aria-valuenow={index ?? lastIndex}
-        aria-valuetext={`${etTime(shown.at)}, ${money(shown.equity)}, ${signedMoney(change)} today${worst ? `, ${SEVERITY_WORD[worst.severity]}: ${worst.message}` : ''}`}
-        onPointerDown={scrub}
-        onPointerMove={scrub}
-        onPointerLeave={(e) => {
-          if (e.pointerType === 'mouse') setCursor(null);
-        }}
-        onKeyDown={step}
-        onFocus={() => setCursor((c) => c ?? lastIndex)}
-        onBlur={() => setCursor(null)}
-      >
-        <svg viewBox={`0 0 ${TRACE_W} ${TRACE_H}`} preserveAspectRatio="none" aria-hidden>
-          {[0.25, 0.5, 0.75].map((f) => (
-            <line key={f} className="pw-trace-grid" x1={0} x2={TRACE_W} y1={TRACE_H * f} y2={TRACE_H * f} />
-          ))}
-          {hours.map((hx) => (
-            <line key={hx} className="pw-trace-grid" x1={hx} x2={hx} y1={0} y2={TRACE_H} />
-          ))}
-          <line className="pw-trace-base" x1={0} x2={TRACE_W} y1={baseY} y2={baseY} />
-          {index !== null && <line className="pw-trace-cursor" x1={x(shown.at)} x2={x(shown.at)} y1={0} y2={TRACE_H} />}
-          <polyline className="pw-trace-line" points={line} />
-        </svg>
-        <span className="pw-trace-now" style={{ left: `${(x(last.at) / TRACE_W) * 100}%`, top: `${(y(last.equity) / TRACE_H) * 100}%` }} />
-        {index !== null && (
-          <>
-            <span className="pw-trace-cursor-dot" style={at(shown)} />
-            <span className="pw-trace-readout" ref={readoutRef} data-x={(x(shown.at) / TRACE_W) * 100}>
-              <span className="pw-trace-readout-row">
-                <span className="pw-small">{etTime(shown.at)}</span>
-                <span className="pw-figure pw-amount">{money(shown.equity)}</span>
-                <span className={`pw-figure pw-amount ${toneClass[tone(change)]}`}>{signedFigure(change)}</span>
-              </span>
-              {worst && (
-                <span className="pw-trace-readout-event pw-small">
-                  <span className={`pw-event-sev pw-sev-${worst.severity}`}>{SEVERITY_WORD[worst.severity]}</span>
-                  <span className="pw-trace-readout-msg">{worst.message}</span>
-                  {here.length > 1 && <span className="pw-muted">and {here.length - 1} more</span>}
+      {/* One slot before children, as in the empty figure, so the range bar keeps its buttons and focus when a range loads. */}
+      <>
+        <div
+          className={`pw-trace-plot ${index === null ? '' : 'pw-trace-scrubbing'}`}
+          role="slider"
+          tabIndex={0}
+          aria-label={`Equity ${since === 'today' ? 'through the day' : since}`}
+          aria-valuemin={0}
+          aria-valuemax={lastIndex}
+          aria-valuenow={index ?? lastIndex}
+          aria-valuetext={`${when(shown.at)}, ${money(shown.equity)}, ${signedMoney(change)} ${since}${worst ? `, ${SEVERITY_WORD[worst.severity]}: ${worst.message}` : ''}`}
+          onPointerDown={scrub}
+          onPointerMove={scrub}
+          onPointerLeave={(e) => {
+            if (e.pointerType === 'mouse') setCursor(null);
+          }}
+          onKeyDown={step}
+          onFocus={() => setCursor((c) => c ?? lastIndex)}
+          onBlur={() => setCursor(null)}
+        >
+          <svg viewBox={`0 0 ${TRACE_W} ${TRACE_H}`} preserveAspectRatio="none" aria-hidden>
+            {[0.25, 0.5, 0.75].map((f) => (
+              <line key={f} className="pw-trace-grid" x1={0} x2={TRACE_W} y1={TRACE_H * f} y2={TRACE_H * f} />
+            ))}
+            {model.grid.map((g) => (
+              <line key={g} className="pw-trace-grid" x1={x(new Date(g).toISOString())} x2={x(new Date(g).toISOString())} y1={0} y2={TRACE_H} />
+            ))}
+            <line className="pw-trace-base" x1={0} x2={TRACE_W} y1={baseY} y2={baseY} />
+            {index !== null && <line className="pw-trace-cursor" x1={x(shown.at)} x2={x(shown.at)} y1={0} y2={TRACE_H} />}
+            <polyline className="pw-trace-line" points={line} />
+          </svg>
+          <span className="pw-trace-now" style={at(last)} />
+          {index !== null && (
+            <>
+              <span className="pw-trace-cursor-dot" style={at(shown)} />
+              <span className="pw-trace-readout" ref={readoutRef} data-x={(x(shown.at) / TRACE_W) * 100}>
+                <span className="pw-trace-readout-row">
+                  <span className="pw-small">{when(shown.at)}</span>
+                  <span className="pw-figure pw-amount">{money(shown.equity)}</span>
+                  <span className={`pw-figure pw-amount ${toneClass[tone(change)]}`}>{signedFigure(change)}</span>
                 </span>
-              )}
-            </span>
-          </>
-        )}
-        {showLow && (
-          <>
-            <span className="pw-trace-low" style={at(low)} />
-            <span className={`pw-trace-tag pw-trace-tag-below ${edge(low)}`} style={at(low)}>
-              <span className="pw-figure pw-amount">{money(low.equity)}</span>
-              <span className="pw-small">{etTime(low.at)}</span>
-            </span>
-          </>
-        )}
-        {showHigh && (
-          <>
-            <span className="pw-trace-high" style={at(high)} />
-            <span className={`pw-trace-tag pw-trace-tag-above ${edge(high)}`} style={at(high)}>
-              <span className="pw-figure pw-best pw-amount">{money(high.equity)}</span>
-              <span className="pw-small">{etTime(high.at)}</span>
-            </span>
-          </>
-        )}
-        {/* Flags draw over the high and low labels, so a label never hides a halt. */}
-        {flags.map((e) => (
-          <span key={e.id} className={`pw-trace-flag pw-event-${e.severity}`} style={{ left: `${(x(e.at) / TRACE_W) * 100}%` }} />
-        ))}
-      </div>
-      <figcaption className="pw-trace-axis pw-small" aria-hidden>
-        <span>{etTime(new Date(t0).toISOString())}</span>
-        <span className="pw-trace-legend">
-          <span className="pw-trace-swatch" aria-hidden /> Previous close
-        </span>
-        <span>{etTime(new Date(t1).toISOString())}</span>
-      </figcaption>
+                {worst && (
+                  <span className="pw-trace-readout-event pw-small">
+                    <span className={`pw-event-sev pw-sev-${worst.severity}`}>{SEVERITY_WORD[worst.severity]}</span>
+                    <span className="pw-trace-readout-msg">{worst.message}</span>
+                    {here.length > 1 && <span className="pw-muted">and {here.length - 1} more</span>}
+                  </span>
+                )}
+              </span>
+            </>
+          )}
+          {showLow && (
+            <>
+              <span className="pw-trace-low" style={at(low)} />
+              <span className={`pw-trace-tag pw-trace-tag-below ${edge(low)}`} style={at(low)}>
+                <span className="pw-figure pw-amount">{money(low.equity)}</span>
+                <span className="pw-small">{when(low.at)}</span>
+              </span>
+            </>
+          )}
+          {showHigh && (
+            <>
+              <span className="pw-trace-high" style={at(high)} />
+              <span className={`pw-trace-tag pw-trace-tag-above ${edge(high)}`} style={at(high)}>
+                <span className="pw-figure pw-best pw-amount">{money(high.equity)}</span>
+                <span className="pw-small">{when(high.at)}</span>
+              </span>
+            </>
+          )}
+          {/* Flags draw over the high and low labels, so a label never hides a halt. */}
+          {flags.map((e) => (
+            <span key={e.id} className={`pw-trace-flag pw-event-${e.severity}`} style={{ left: `${(x(e.at) / TRACE_W) * 100}%` }} />
+          ))}
+        </div>
+        <figcaption className="pw-trace-axis pw-small" aria-hidden>
+          <span>{when(new Date(t0).toISOString())}</span>
+          <span className="pw-trace-legend">
+            <span className="pw-trace-swatch" aria-hidden /> {model.baselineLabel}
+          </span>
+          <span>{when(new Date(t1).toISOString())}</span>
+        </figcaption>
+      </>
+      {children}
     </figure>
   );
 }

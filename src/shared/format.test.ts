@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { delta, duration, etClock, etTime, localClock, money, pct, qty, signedMoney, signedPct } from './format.ts';
+import { calendarDate, delta, duration, etClock, etTime, localClock, money, pct, qty, signedMoney, signedPct } from './format.ts';
 
 test('money has a dollar sign, thousands commas, two decimals and a true minus', () => {
   assert.equal(money(12345.67), '$12,345.67');
@@ -53,4 +53,9 @@ test('ET times are labeled and follow daylight saving', () => {
 
 test('local clock is 24-hour', () => {
   assert.equal(localClock(new Date(2026, 9, 12, 14, 32, 7).toISOString()), '14:32:07');
+});
+
+test('calendarDate reads a stored date as written, with the year when asked', () => {
+  assert.equal(calendarDate('2026-10-13T00:00:00.000Z'), 'Oct 13');
+  assert.equal(calendarDate('2025-01-01T00:00:00.000Z', true), 'Jan 1, 2025');
 });

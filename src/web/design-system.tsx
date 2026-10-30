@@ -261,7 +261,7 @@ Source: \`Shell\` in \`src/web/main.tsx\`.`,
   {
     name: 'PitBoard',
     group: 'Data',
-    height: 280,
+    height: 312,
     width: 900,
     subtitle: 'equity, today, close and high, beside the trace',
     body: (
@@ -271,7 +271,7 @@ Source: \`Shell\` in \`src/web/main.tsx\`.`,
     ),
     readme: `Equity on a pit board: stacked slats with asphalt between them, beside the day's trace.
 
-**Provide:** the account (equity and previous close), today's equity samples, the event log, and whether the feed is stale.
+**Provide:** the account (equity and previous close), today's equity samples, the event log, and whether the feed is stale. The board fetches daily closes itself when a longer range is picked.
 
 **Use:**
 - Slat one is equity in \`hero\`. Slat two is today's change in \`board\` with its percent and ▲ or ▼. Slat three pairs the previous close with the day high.
@@ -280,6 +280,7 @@ Source: \`Shell\` in \`src/web/main.tsx\`.`,
 - The axis spans the regular session, 09:30 to 16:00 ET, with a faint line each hour, and widens only if samples fall outside it. The empty part is the time left. A dot marks the latest sample.
 - Point at the trace, or focus it and use the arrow keys, Home and End, to scrub it. A dashed \`muted\` cursor snaps to the nearest sample and a readout at the top gives its ET time, equity and change on the day, stopping at the plot's edges. The high and low labels step aside while it shows. Pointer leave, Escape or blur clears it. The plot is a slider whose value text is the readout.
 - Warnings, errors and halts in the session stand on the axis as 3px flags in the event log's stripe colours. Scrubbing to a flag's sample adds the worst one's severity and message to the readout, with a count of the rest. Flags draw over the high and low labels, so a label never hides a halt.
+- The range bar under the axis picks Today, 1M, 3M, YTD, 1Y or All. The longer ranges load daily closes once per ET date from \`GET /api/equity/daily\` (\`useDailyHistory\` in \`src/web/data.ts\`), end at the live equity and measure against the range's first close. They show dates, month or year lines and no flags or high and low labels. While closes load, or if they fail, the plot gives way to one line of text and the bar stays, with focus on the pressed range. Picking a range again retries a failed load.
 - A change under 0.01% reads "<0.01%", never a signed zero.
 - Stale figures and the trace fade to \`muted\`.
 - The Equity label carries the privacy eye. With amounts hidden, every money figure on the board and trace blurs in place; the percent, times and the trace's shape stay.

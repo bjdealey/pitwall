@@ -1,4 +1,4 @@
-import { demoCommand, demoTick, startDemo, type DemoState } from '../shared/demo.ts';
+import { demoCommand, demoDailyEquity, demoTick, startDemo, type DemoState } from '../shared/demo.ts';
 import type { Command, Snapshot } from '../shared/domain.ts';
 import { et } from '../shared/et.ts';
 import type { PostResult } from './data.ts';
@@ -32,3 +32,6 @@ export function postDemo(url: string, body: unknown): PostResult {
   state = queued.state;
   return queued.result;
 }
+
+/** Stands in for GET /api/equity/daily, on the demo's clock. */
+export const dailyDemo = () => demoDailyEquity(clock());

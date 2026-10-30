@@ -5,7 +5,7 @@ import { Activity, ArrowLeftRight, Briefcase, Gauge, Layers, OctagonX } from 'lu
 import { StrictMode, useEffect, useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { HeartbeatAgeContext, MarketChip, ModeStrip, PasscodeInput, PrivacyContext, TrackBand, trackStatus, usePrivacy } from './components.tsx';
+import { FullscreenButton, HeartbeatAgeContext, MarketChip, ModeStrip, PasscodeInput, PrivacyContext, TrackBand, trackStatus, usePrivacy } from './components.tsx';
 import { DEMO, freshness, postJson, useNow, usePost, useSnapshot } from './data.ts';
 import { Events, Orders, Overview, PauseAllSheet, Positions, Strategies } from './screens.tsx';
 
@@ -65,6 +65,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
           ))}
         </nav>
         {feed && <MarketChip market={feed.snapshot.market} now={now} />}
+        <FullscreenButton />
         <button type="button" className="pw-btn pw-btn-stop pw-btn-compact" onClick={() => setPausing(true)}>
           <OctagonX className="pw-icon" aria-hidden />
           <span>Stop</span>

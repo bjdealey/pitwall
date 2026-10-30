@@ -125,6 +125,8 @@ app.get('/api/stream', (c) =>
   }),
 );
 
+app.get('/api/equity/daily', (c) => c.json(db.select().from(t.dailyEquity).orderBy(t.dailyEquity.date).all()));
+
 app.post('/api/commands', async (c) => {
   const body = await readJson(c);
   const parsed = commandSchema.safeParse(body);

@@ -52,5 +52,9 @@ const etHourMinuteSecond = new Intl.DateTimeFormat('en-US', { timeZone: 'America
 const localHourMinuteSecond = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
 
 export const etTime = (iso: string) => `${etHourMinute.format(new Date(iso))} ET`;
+const shortDate = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
+const longDate = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' });
+/** A calendar date kept at UTC midnight, read as written, so an ET date never slips a day: "Oct 13", or "Oct 13, 2025". */
+export const calendarDate = (iso: string, withYear = false) => (withYear ? longDate : shortDate).format(new Date(iso));
 export const etClock = (iso: string) => etHourMinuteSecond.format(new Date(iso));
 export const localClock = (iso: string) => localHourMinuteSecond.format(new Date(iso));
