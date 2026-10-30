@@ -15,7 +15,7 @@ Pitwall runs a small trading bot on a Raspberry Pi 5 and gives you a private das
 
 It is two processes that share one SQLite file:
 
-- `src/engine` runs the strategies, talks to the broker, enforces the risk halts (daily loss, rejected orders in a row, broker silence) and writes everything to SQLite.
+- `src/engine` runs the strategies, talks to the broker, enforces the risk halts (daily loss, rejected orders in a row, broker silence) and the trading rules (entry window, stop, flat before the close, position sizing, daily trade cap), and writes everything to SQLite.
 - `src/api` serves the built dashboard, one Server-Sent Events stream and the POST endpoints for sign-in and commands. It never writes engine data. Your commands go into a `commands` table that the engine applies on its next 5-second tick.
 
 A dashboard crash never stops trading, and an engine crash shows up as a STALE dashboard and an ntfy alert.
@@ -36,7 +36,7 @@ npm run dev
 
 The appended lines override the empty ones from the example. Keep the single quotes around the hash, because it contains `$` characters.
 
-`npm run dev` starts the engine with the broker `.env` names in `PITWALL_BROKER`, the API on `127.0.0.1:8080` and Vite on `http://127.0.0.1:5173`, with prefixed output. With `PITWALL_BROKER=sim` the simulator gives every symbol a seeded random walk with a new bar every 5 seconds, an always-open market, $50,000 of cash and instant fills. It resets when the engine restarts.
+`npm run dev` starts the engine with the broker `.env` names in `PITWALL_BROKER`, the API on `127.0.0.1:8080` and Vite on `http://127.0.0.1:5173`, with prefixed output. With `PITWALL_BROKER=sim` the simulator gives every symbol a seeded random walk with a new bar every 5 seconds, an always-open market, $50,000 of cash and instant fills. It resets when the engine restarts. Its session never ends, so the entry window and flat-by stay out of the way. The daily trade cap still applies, so raise `PITWALL_MAX_TRADES_PER_DAY` for long sim runs.
 
 Other scripts:
 

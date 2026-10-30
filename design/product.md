@@ -27,12 +27,13 @@ These are the decisions the interface depends on. Build screens against them and
 - **Pause all:** no new orders, cancel open orders, keep positions.
 - **Flatten:** Pause all, then a market close of every position.
 - **Per-strategy pause and resume.** Resume is never automatic and never in bulk.
-- **Automatic halts** are the same action as Pause all, with a reason:
+- **Automatic halts** are the same action as Pause all, with a reason, except that a halted strategy's stop and flat-by still close its position:
   - the daily loss limit (for example −2% of equity)
   - N rejected orders in a row
   - broker silence past a timeout
 
   Each halt is shown as a LimitMeter.
+- **Daily trade cap:** blocks new entries only and does not halt. It is shown as a LimitMeter too.
 
 ## Screens (v1)
 
