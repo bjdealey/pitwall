@@ -18,4 +18,6 @@ export function evaluateLimits({ account, consecutiveRejections, lastBrokerOkAt,
   ];
 }
 
+export const tradesLimit = (used: number, max: number): Limit => limit('trades', 'Daily trade limit', used, max, `${used} of ${max} entries today`);
+
 export const breachReason = (l: Limit) => `${l.label} reached (${l.detail}).`;

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Account, LimitId } from '../shared/domain.ts';
-import { breachReason, evaluateLimits, type LimitInput } from './limits.ts';
+import { breachReason, evaluateLimits, tradesLimit, type LimitInput } from './limits.ts';
 
 const config = { dailyLossPct: 2, maxRejections: 4, brokerSilenceS: 30 };
 const now = new Date('2026-10-12T15:00:00Z');
@@ -37,4 +37,14 @@ test('broker silence counts seconds since the last good call', () => {
   assert.deepEqual([quiet(29).used, quiet(29).breached], [29, false]);
   assert.equal(quiet(30).breached, true);
   assert.equal(quiet(30).detail, '30s of 30s since last reply');
+});
+
+test('the trade cap reads as a limit that fills at the max', () => {
+  assert.deepEqual(tradesLimit(3, 3), { id: 'trades', label: 'Daily trade limit', used: 3, max: 3, detail: '3 of 3 entries today', breached: true });
+  assert.equal(tradesLimit(2, 3).breached, false);
+  assert.equal(tradesLimit(0, 3).detail, '0 of 3 entries today');
+});
+
+test('the trade cap is not in the limits that halt', () => {
+  assert.deepEqual(evaluateLimits(input(), config).map((l) => l.id), ['daily-loss', 'rejections', 'broker-silence']);
 });
