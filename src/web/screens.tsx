@@ -14,10 +14,12 @@ import {
   HoldToFlatten,
   leaveSheet,
   LimitMeter,
+  PAGE,
   PasscodeInput,
   PitBoard,
   Readout,
   Screen,
+  ShowOlder,
   SignedMoney,
   signedFigure,
   SystemReadout,
@@ -40,7 +42,7 @@ export const Overview = memo(function Overview({ snapshot, stale }: ScreenProps)
   const [pausing, setPausing] = useState(false);
   const [flattening, setFlattening] = useState(false);
   const unrealized = positions.reduce((sum, p) => sum + p.unrealizedPl, 0);
-  const arrived = useArrivals(events);
+  const arrived = useArrivals(events, (e) => e.id);
   const latest = collapseEvents(events).slice(0, 6);
 
   return (
@@ -133,6 +135,7 @@ export function PauseAllSheet({ snapshot, onClose }: { snapshot: Snapshot | null
 }
 
 function PositionsTable({ positions }: { positions: Position[] }) {
+  const arrived = useArrivals(positions, (p) => p.symbol);
   const lastQty = useRef(new Map<string, number>());
   useEffect(() => {
     lastQty.current = new Map(positions.map((p) => [p.symbol, p.qty]));
@@ -158,9 +161,9 @@ function PositionsTable({ positions }: { positions: Position[] }) {
             const before = lastQty.current.get(p.symbol);
             const t = tone(p.unrealizedPl);
             return (
-              <tr key={p.symbol} className={before !== undefined && before !== p.qty ? 'pw-changed' : undefined}>
+              <tr key={p.symbol} className={arrived(p) ? 'pw-row-new' : before !== undefined && before !== p.qty ? 'pw-changed' : undefined}>
                 <td className="pw-timing" translate="no">
-                  {p.symbol}
+                  <span className={arrived(p) ? 'pw-fresh' : undefined}>{p.symbol}</span>
                 </td>
                 <td className="pw-r pw-amount">{qty(p.qty)}</td>
                 <td className="pw-r pw-hide-phone">{money(p.avgEntryPrice)}</td>
@@ -213,6 +216,8 @@ const orderClass = (status: string) => (status === 'rejected' ? 'pw-sev-error' :
 
 export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
   const { orders, serverTime } = snapshot;
+  const arrived = useArrivals(orders, (o) => o.id);
+  const [shown, setShown] = useState(PAGE);
   const rejected = orders.filter((o) => o.status === 'rejected').length;
   return (
     <div className={`pw-page ${stale ? 'pw-is-stale' : ''}`}>
@@ -238,51 +243,56 @@ export const Orders = memo(function Orders({ snapshot, stale }: ScreenProps) {
         {orders.length === 0 ? (
           <Empty title="No orders today.">Orders appear here as strategies trade, newest first.</Empty>
         ) : (
-          <div className="pw-table-wrap">
-            <table className="pw-table">
-              <caption className="pw-sr">Orders today</caption>
-              <thead className="pw-small">
-                <tr>
-                  <th scope="col">Time (ET)</th>
-                  <th scope="col">Symbol</th>
-                  <th scope="col">Side</th>
-                  <th scope="col" className="pw-r">Qty</th>
-                  <th scope="col" className="pw-r pw-hide-phone">Filled</th>
-                  <th scope="col" className="pw-r pw-hide-phone">Avg fill</th>
-                  <th scope="col">Status</th>
-                  <th scope="col" className="pw-hide-phone">Strategy</th>
-                </tr>
-              </thead>
-              <tbody className="pw-figure">
-                {orders.map((o) => (
-                  <tr key={o.id}>
-                    <td className="pw-muted">{etClock(o.submittedAt)}</td>
-                    <td className="pw-timing" translate="no">
-                      {o.symbol}
-                      <span className={`pw-fold pw-small ${o.strategyId ? '' : 'pw-muted'}`} translate={o.strategyId ? undefined : 'yes'}>
-                        {o.strategyId ?? 'manual'}
-                      </span>
-                    </td>
-                    <td className="pw-small pw-caps">{o.side}</td>
-                    <td className="pw-r pw-amount">{qty(o.qty)}</td>
-                    <td className="pw-r pw-hide-phone pw-amount">{qty(o.filledQty)}</td>
-                    <td className="pw-r pw-hide-phone">{o.filledAvgPrice === null ? '' : money(o.filledAvgPrice)}</td>
-                    <td>
-                      <span className={`pw-status pw-small pw-caps ${orderClass(o.status)}`}>{o.status.replaceAll('_', ' ')}</span>
-                      {o.filledQty > 0 && (
-                        <span className="pw-fold pw-small pw-muted">
-                          <span className="pw-amount">{qty(o.filledQty)}</span> {o.filledAvgPrice === null ? 'filled' : `at ${money(o.filledAvgPrice)}`}
-                        </span>
-                      )}
-                    </td>
-                    <td className={`pw-hide-phone ${o.strategyId ? '' : 'pw-muted'}`} translate={o.strategyId ? 'no' : undefined}>
-                      {o.strategyId ?? 'manual'}
-                    </td>
+          <>
+            <div className="pw-table-wrap">
+              <table className="pw-table">
+                <caption className="pw-sr">Orders today</caption>
+                <thead className="pw-small">
+                  <tr>
+                    <th scope="col">Time (ET)</th>
+                    <th scope="col">Symbol</th>
+                    <th scope="col">Side</th>
+                    <th scope="col" className="pw-r">Qty</th>
+                    <th scope="col" className="pw-r pw-hide-phone">Filled</th>
+                    <th scope="col" className="pw-r pw-hide-phone">Avg fill</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" className="pw-hide-phone">Strategy</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="pw-figure">
+                  {orders.slice(0, shown).map((o) => (
+                    <tr key={o.id} className={arrived(o) ? 'pw-row-new' : undefined}>
+                      <td className="pw-muted">
+                        <span className={arrived(o) ? 'pw-fresh' : undefined}>{etClock(o.submittedAt)}</span>
+                      </td>
+                      <td className="pw-timing" translate="no">
+                        {o.symbol}
+                        <span className={`pw-fold pw-small ${o.strategyId ? '' : 'pw-muted'}`} translate={o.strategyId ? undefined : 'yes'}>
+                          {o.strategyId ?? 'manual'}
+                        </span>
+                      </td>
+                      <td className="pw-small pw-caps">{o.side}</td>
+                      <td className="pw-r pw-amount">{qty(o.qty)}</td>
+                      <td className="pw-r pw-hide-phone pw-amount">{qty(o.filledQty)}</td>
+                      <td className="pw-r pw-hide-phone">{o.filledAvgPrice === null ? '' : money(o.filledAvgPrice)}</td>
+                      <td>
+                        <span className={`pw-status pw-small pw-caps ${orderClass(o.status)}`}>{o.status.replaceAll('_', ' ')}</span>
+                        {o.filledQty > 0 && (
+                          <span className="pw-fold pw-small pw-muted">
+                            <span className="pw-amount">{qty(o.filledQty)}</span> {o.filledAvgPrice === null ? 'filled' : `at ${money(o.filledAvgPrice)}`}
+                          </span>
+                        )}
+                      </td>
+                      <td className={`pw-hide-phone ${o.strategyId ? '' : 'pw-muted'}`} translate={o.strategyId ? 'no' : undefined}>
+                        {o.strategyId ?? 'manual'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <ShowOlder shown={Math.min(shown, orders.length)} total={orders.length} onMore={() => setShown((n) => n + PAGE)} />
+          </>
         )}
       </Screen>
     </div>
@@ -313,24 +323,23 @@ export const Strategies = memo(function Strategies({ snapshot, stale }: ScreenPr
 const dayLabel = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 
 export const Events = memo(function Events({ snapshot }: ScreenProps) {
-  const arrived = useArrivals(snapshot.events);
-  const days = new Map<string, typeof snapshot.events>();
-  for (const e of snapshot.events) {
-    const day = dayLabel.format(new Date(e.at));
-    const list = days.get(day);
-    if (list) list.push(e);
-    else days.set(day, [e]);
-  }
+  const arrived = useArrivals(snapshot.events, (e) => e.id);
+  const [shown, setShown] = useState(PAGE);
+  const days = Map.groupBy(snapshot.events, (e) => dayLabel.format(new Date(e.at)));
+  // Paging counts rows as shown, after repeats fold, newest first across days.
+  const rows = [...days].flatMap(([day, events]) => collapseEvents(events).map((group) => ({ day, group })));
+  const page = [...Map.groupBy(rows.slice(0, shown), (r) => r.day)];
   return (
     <div className="pw-page">
-      {days.size === 0 ? (
+      {page.length === 0 ? (
         <Screen title="Events" flush>
           <Empty title="No events yet.">Halts, errors, fills and your own actions land here.</Empty>
         </Screen>
       ) : (
-        [...days].map(([day, events]) => (
+        page.map(([day, dayRows], i) => (
           <Screen key={day} title={day} flush>
-            <EventLog events={collapseEvents(events)} fresh={arrived} />
+            <EventLog events={dayRows.map((r) => r.group)} fresh={arrived} />
+            {i === page.length - 1 && <ShowOlder shown={Math.min(shown, rows.length)} total={rows.length} onMore={() => setShown((n) => n + PAGE)} />}
           </Screen>
         ))
       )}

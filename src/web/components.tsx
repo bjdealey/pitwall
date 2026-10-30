@@ -939,10 +939,10 @@ export function collapseEvents(events: EventRecord[]): EventGroup[] {
   return groups;
 }
 
-/** Events newer than the newest one on screen when this list first rendered. Only those animate in. */
-export function useArrivals(events: EventRecord[]) {
-  const [baseline] = useState(() => events.reduce((max, e) => Math.max(max, e.id), 0));
-  return (e: EventRecord) => e.id > baseline;
+/** Rows whose key was not on screen when this list first rendered: they arrived while you watched. Only those animate in. */
+export function useArrivals<T>(rows: T[], key: (row: T) => string | number) {
+  const [seen] = useState(() => new Set(rows.map(key)));
+  return (row: T) => !seen.has(key(row));
 }
 
 const SEVERITY_WORD: Record<Severity, string> = { info: 'INFO', warn: 'WARN', error: 'ERROR', halt: 'HALT' };
@@ -953,7 +953,10 @@ export function EventRow({ group, fresh }: { group: EventGroup; fresh: (e: Event
     <li className={`pw-event pw-event-${latest.severity} ${fresh(earliest) ? 'pw-event-new' : ''}`}>
       {/* A new row drops in once. A repeat joining it only flashes the row, so the row itself stays put. */}
       {fresh(latest) && <span key={latest.id} className="pw-event-flash" aria-hidden />}
-      <span className="pw-event-time pw-small">{localClock(latest.at)}</span>
+      {/* Keyed by the latest event, so a repeat joining the run puts its new time on a fresh plate. */}
+      <span key={latest.id} className={`pw-event-time pw-small ${fresh(latest) ? 'pw-fresh' : ''}`}>
+        {localClock(latest.at)}
+      </span>
       <span className={`pw-event-sev pw-small pw-sev-${latest.severity}`}>{SEVERITY_WORD[latest.severity]}</span>
       <span className="pw-event-msg pw-body">{latest.message}</span>
       <span className="pw-event-src pw-small">{n > 1 ? `${latest.source}, ${n} times since ${localClock(earliest.at)}` : latest.source}</span>
@@ -969,6 +972,35 @@ export function EventLog({ events, fresh }: { events: EventGroup[]; fresh: (e: E
         <EventRow key={g.earliest.id} group={g} fresh={fresh} />
       ))}
     </ol>
+  );
+}
+
+export const PAGE = 50;
+
+/** The foot of a long newest-first list: how much of it shows, and a button for the next page of older rows. */
+export function ShowOlder({ shown, total, onMore }: { shown: number; total: number; onMore: () => void }) {
+  const foot = useRef<HTMLParagraphElement>(null);
+  if (total <= PAGE) return null;
+  const next = Math.min(PAGE, total - shown);
+  return (
+    <div className="pw-more">
+      {/* Takes focus when the last page opens and the button goes. */}
+      <p ref={foot} tabIndex={-1} className="pw-small">
+        {next > 0 ? `Newest ${shown} of ${total}` : `All ${total} shown`}
+      </p>
+      {next > 0 && (
+        <button
+          type="button"
+          className="pw-btn pw-btn-compact pw-label"
+          onClick={() => {
+            onMore();
+            if (next === total - shown) foot.current?.focus();
+          }}
+        >
+          Show {next} older
+        </button>
+      )}
+    </div>
   );
 }
 

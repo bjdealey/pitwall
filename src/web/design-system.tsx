@@ -172,7 +172,7 @@ Source: \`TrackBand\` and \`trackStatus\` in \`src/web/components.tsx\`.`,
 **Provide:** the market session from the snapshot, and the current time so the chip can add a weekday when the change is not today.
 
 **Use:**
-- It sits in the gantry beside Stop, \`chip-h\` tall on a \`surface-2\` key with no outline, with a status light: \`pos\` when open, an outlined ring for pre-market and after-hours, \`muted\` when closed.
+- It sits in the gantry beside Stop, \`chip-h\` tall on a \`surface-2\` plate leaning 20°, like the buttons beside it, with a status light: \`pos\` when open, an outlined ring for pre-market and after-hours, \`muted\` when closed.
 - Times are always ET and labelled: "closes 16:00 ET".
 - The chip is a button. Tapping it opens a popover under it with the whole line: "Market open, closes 16:00 ET." Screen readers hear the same line as its name.
 - Where the gantry has no room, the chip folds its next change below 460px, then below 360px any state longer than Open, leaving the light. The popover still holds everything.
@@ -219,7 +219,7 @@ Source: \`MarketChip\` in \`src/web/components.tsx\`.`,
 
 **Use:**
 - The header is \`header-h\` tall on \`surface\`. The PITWALL wordmark is the \`wordmark\` style, expanded against the condensed tabs, followed by a strip of chequered flag in \`fg\`, the gantry's one ornament.
-- Tabs use the \`timing\` style in \`muted\`. The current one is \`fg\` with a 3px \`accent\` bar that slides to the new tab.
+- Tabs use the \`timing\` style in \`muted\`. The current one is \`surface\` on a timing-white \`accent\` plate leaning 20°, which slides to the new tab.
 - Stop is on every screen and never moves.
 - The first Tab reaches a hidden "Skip to content" button that moves focus to the page.
 - Side padding is the gutter, 16px at a 560px window growing to 24px from 900px, never less than the safe-area inset.
@@ -255,7 +255,7 @@ Source: \`Shell\` in \`src/web/main.tsx\`.`,
 
 **Use:**
 - Shown below 900px only, \`tabbar-h\` tall on \`surface\`, padded for the home indicator and side insets. It rises from the bottom edge as its row opens (360ms) and sinks the same way.
-- Each tab is a Lucide icon at 18px over a short label in the \`small\` style. The current tab is \`fg\` with a 3px \`accent\` bar on top; the rest are \`muted\`.
+- Each tab is a Lucide icon at 18px over a short label in the \`small\` style. The current tab's icon stands in \`surface\` on a 44 by 28 \`accent\` plate leaning 20°, over its label in \`fg\`; the rest are \`muted\`.
 - Tabs are links, so the URL hash carries the screen.
 
 **Don't:**
@@ -514,6 +514,8 @@ Source: \`Readout\` in \`src/web/components.tsx\`.`,
 - Orders & fills offers "Download CSV" beside its title: today's orders, newest first, UTC times, formulas defused. Built by \`ordersCsv\` in \`src/shared/orders.ts\`.
 - Quantities carry \`pw-amount\`, so privacy mode blurs them; prices stay.
 - A position row tints once when its quantity changes.
+- A row that arrives while the table is on screen drops in, and its time (an order) or symbol (a position) stands on a timing-white plate for 10s, then fades back.
+- Orders & fills shows the newest 50 orders. Past that, \`ShowOlder\` sits at the foot: "Newest 50 of 184" and a "Show 50 older" button that opens the next 50 below. When the last page opens, the button goes and focus moves to "All 184 shown".
 - Columns draw closer as the window narrows, from 32px apart at 900px to 16px at 560px and 8px at 360px, with the outer edges kept at 16px, so Orders & fills fits a 375px phone. The table scrolls sideways only if it still must, at 320px or with a long strategy ID.
 - Below 900px the secondary columns fade out (240ms) and then give up their space, and the other columns slide over to take it, each figure holding its right edge. Wider again, they take their space and fade in.
 - Nothing they held is lost: each value rides as a second \`small\` line in the cell beside it, opening as its column fades. Positions puts "avg $571.20" under Last and P&L % under P&L; Orders & fills puts the strategy under the symbol and "12 at $571.20" under the status. The P&L bar is the one thing a phone drops.
@@ -587,7 +589,8 @@ Source: \`SignedMoney\` in \`src/web/components.tsx\`; formats in \`src/shared/f
 - The message uses \`body\` and wraps; the source sits under it in \`muted\`, or in its own right-hand column, only as wide as its text, when the log is at least 720px wide. A folded row says how often: "broker, 3 times since 16:47:05".
 - WARN, ERROR and HALT carry a 3px by 12px mark in their colour before the severity, the same mark as their flag on the trace. INFO keeps the space, so the words align.
 - Rows alternate \`surface\` and \`surface-2\`, with no rule between them. The full log groups rows under a Screen per day.
-- A new row drops in and its tint fades over 1.6s. A repeat folding into a row on screen tints it again without rebuilding or moving it: rows are keyed by the first event of their run.
+- A new row drops in, its tint fades over 1.6s, and its time stands on a timing-white plate for 10s. A repeat folding into a row on screen tints it again and plates its new time, without rebuilding or moving the row: rows are keyed by the first event of their run.
+- The full log shows the newest 50 rows, counted after repeats fold, with \`ShowOlder\` at the foot of the last day.
 - Below 900px the time and severity sit above the message.
 
 **Don't:**
@@ -629,7 +632,7 @@ Source: \`EventRow\` and \`EventLog\` in \`src/web/components.tsx\`.`,
 **Provide:** a sentence-case title, optional aside (usually a link to the full screen), and the content. \`flush\` drops the body padding for tables and logs.
 
 **Use:**
-- \`surface\` on the \`bg\` asphalt with \`radius-sm\` corners, casting \`shadow-stack\`: a hard 6px offset down and right, like a stacked broadcast plate. The title plate casts \`shadow-plate\` onto the cap.
+- \`surface\` on the \`bg\` asphalt with \`radius-sm\` corners, standing as a slab: \`shadow-stack\` draws a 6px side down and right that darkens away from the face. The title plate shows a 4px \`shadow-plate\` side on the cap.
 - The face is drawn on \`::before\`, like the tower's, the trace's and every slat's. When a resize moves a panel to another layout, \`glide\` in \`src/web/glide.ts\` slides it there from where it was drawn and grows or shrinks the face to its new size through \`--glide-r\` and \`--glide-b\`.
 - The head is a 52px \`surface-3\` band, the cap. The title is \`heading\` in \`surface\` on a plate of \`fg\` leaning 20°, like a broadcast caption. No rule sits under the head, and no outline around the screen.
 - A Screen wipes in from the left behind a slanted edge when it arrives (460ms), and its rows slide in after it, 40ms apart. On Overview the screens follow the tower and the pit board in reading order. Reduced motion fades them in instead.
@@ -677,10 +680,11 @@ Source: \`Screen\` and \`Empty\` in \`src/web/components.tsx\`.`,
 **Provide:** the label, and an icon only beside a word.
 
 **Use:**
-- At least \`tap-min\` tall, \`radius-md\`, label at 14px bold in the semi-condensed width.
-- Default: \`control\` edge, transparent fill. Primary (Sign in, Resume): \`fg\` fill. Stop and Pause all: \`neg\` edge and text. Danger, the confirm in Pause all and Flatten sheets: \`flag-red\` fill.
-- Buttons press to 98%. A busy button reads what it is doing: "Checking…", "Sending…".
-- Hover makes a button more prominent, never less.
+- At least \`tap-min\` tall, on a square plate leaning 20° like the screen titles, label at 14px bold in the semi-condensed width. The label stays upright and the tap target is the box.
+- Default: \`surface-3\` face. Primary (Sign in, Resume): \`fg\` face with \`surface\` text. Stop and Pause all: \`neg\` text on \`neg-soft\`. Danger, the confirm in Pause all and Flatten sheets: \`flag-red\` face.
+- Focus draws the outline around the plate, so it leans with it.
+- Each plate shows a 4px side in its face colour, darkened. A press sinks the button 3px into it. A busy button reads what it is doing: "Checking…", "Sending…".
+- Hover makes a button more prominent, never less: the plate widens 3px each way, and a default face lifts to \`border\`.
 
 **Don't:**
 - Don't write "OK" or "Are you sure?". Confirm titles ask with the same verb: "Pause all strategies?"
@@ -708,7 +712,7 @@ Source: \`.pw-btn\` in \`src/web/pitwall.css\`.`,
 **Provide:** what happens when the hold completes, which is opening the Flatten sheet.
 
 **Use:**
-- \`flag-red\` fill. Pressing starts a fill that tracks the 2s hold; the label reads "Keep holding…" and the button settles to 98.5%. Letting go early eases the fill back.
+- \`flag-red\` fill. Pressing starts a fill that tracks the 2s hold; the label reads "Keep holding…" and the button sinks 3px into its side. Letting go early eases the fill back.
 - Space or Enter held for 2s works the same; key repeats never shortcut the hold, and the still-held key does nothing inside the sheet that opens. A screen reader's click, which has no press behind it, opens the passcode sheet directly; the passcode still guards it.
 - It sits beside Pause all at the foot of the timing tower.
 

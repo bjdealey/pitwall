@@ -67,12 +67,14 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-nav { --nav-pad: clamp(var(--space-2), 4vw - 28px, var(--space-3)); display: flex; align-self: stretch; gap: var(--space-1); margin-left: var(--space-6); transition: opacity 240ms ease-out, display 240ms allow-discrete; }
 @starting-style { .pw-nav { opacity: 0; } }
 .pw-nav + * { margin-left: auto; }
-.pw-nav-item { position: relative; display: flex; align-items: center; padding: 0 var(--nav-pad); color: var(--muted); text-decoration: none; transition: color 150ms ease-out; }
-.pw-nav-item:hover, .pw-nav-item[aria-current="page"] { color: var(--fg); }
-.pw-nav-pill { position: absolute; left: var(--nav-pad); right: var(--nav-pad); bottom: -1px; height: 3px; background: var(--accent); view-transition-name: nav-pill; }
+.pw-nav-item { position: relative; isolation: isolate; display: flex; align-items: center; padding: 0 var(--nav-pad); color: var(--muted); text-decoration: none; transition: color 150ms ease-out; }
+.pw-nav-item:hover { color: var(--fg); }
+.pw-nav-item[aria-current="page"] { color: var(--surface); }
+/* The current tab stands on a timing-white plate, like a title, and slides to the next tab. */
+.pw-nav-pill { position: absolute; top: 50%; left: calc(var(--nav-pad) - 4px); right: calc(var(--nav-pad) - 4px); z-index: -1; height: 30px; translate: 0 -50%; background: var(--accent); box-shadow: var(--shadow-plate); transform: skewX(-20deg); view-transition-name: nav-pill; }
 
-.pw-market { position: relative; display: inline-flex; align-items: center; gap: var(--space-2); height: var(--chip-h); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--muted); white-space: nowrap; cursor: pointer; transition: background-color 150ms ease-out; }
-.pw-market:hover { background: var(--border); }
+.pw-market { --face: var(--surface-2); position: relative; isolation: isolate; display: inline-flex; align-items: center; gap: var(--space-2); height: var(--chip-h); padding: 0 var(--space-3); border: 0; background: none; color: var(--muted); white-space: nowrap; cursor: pointer; }
+.pw-market:hover { --face: var(--border); }
 .pw-market::after { content: ""; position: absolute; inset: 50% 0 auto; height: var(--tap-min); translate: 0 -50%; }
 .pw-market-state { max-width: 8em; overflow: hidden; color: var(--fg); font-weight: 700; transition: max-width 360ms cubic-bezier(.16, 1, .3, 1), margin-left 360ms cubic-bezier(.16, 1, .3, 1), opacity 240ms ease-out, visibility 360ms; }
 .pw-market-next { max-width: 10em; overflow: hidden; transition: max-width 360ms cubic-bezier(.16, 1, .3, 1), margin-left 360ms cubic-bezier(.16, 1, .3, 1), opacity 240ms ease-out, visibility 360ms; }
@@ -87,21 +89,28 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-market-pre .pw-light, .pw-market-after .pw-light { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
 
 /* Buttons. */
-.pw-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--tap-min); padding: 0 var(--space-4); border: 1px solid var(--control); border-radius: var(--radius-md); background: transparent; color: var(--fg); font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 700; font-stretch: 87.5%; text-decoration: none; white-space: nowrap; cursor: pointer; transition: background-color 150ms ease-out, border-color 150ms ease-out, transform 120ms ease-out; }
-.pw-btn:hover:not(:disabled) { background: var(--surface-2); }
-.pw-btn:active:not(:disabled) { transform: scale(.98); }
+.pw-btn { --face: var(--surface-3); position: relative; isolation: isolate; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--tap-min); padding: 0 var(--space-4); border: 0; background: none; color: var(--fg); font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 700; font-stretch: 87.5%; text-decoration: none; white-space: nowrap; cursor: pointer; transition: transform 120ms ease-out; }
+/* Hover stretches the plate 3px each way, and a default button's face lightens. */
+.pw-btn:hover:not(:disabled) { --face: var(--border); }
+.pw-btn:hover:not(:disabled)::before { inset: 0 -3px; }
+.pw-btn:focus-visible { outline: none; }
+.pw-btn:focus-visible::before { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* A press sinks the plate 3px into its side. */
+.pw-btn:active:not(:disabled), .pw-btn.pw-holding { transform: translate(3px, 3px); }
+.pw-btn:is(:active:not(:disabled), .pw-holding)::before { box-shadow: 1px 1px 0 var(--side); }
 .pw-btn-compact { padding: 0 var(--space-3); }
 .pw-btn-flatten { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-.pw-btn-stop { border-color: var(--neg); color: var(--neg); }
-.pw-btn-stop:hover:not(:disabled) { background: var(--neg-soft); }
-.pw-btn-danger, .pw-btn-flatten { border-color: var(--flag-red); background: var(--flag-red); color: var(--on-flag-red); }
-.pw-btn-danger:hover:not(:disabled), .pw-btn-flatten:hover:not(:disabled) { background: var(--flag-red); border-color: var(--fg); }
-.pw-btn-primary { border-color: var(--fg); background: var(--fg); color: var(--surface); }
-.pw-btn-primary:hover:not(:disabled) { border-color: var(--fg); background: var(--fg); box-shadow: inset 0 0 0 2px var(--surface); }
+.pw-btn-stop, .pw-btn-stop:hover:not(:disabled) { --face: var(--neg-soft); color: var(--neg); }
+.pw-btn-danger, .pw-btn-flatten, :is(.pw-btn-danger, .pw-btn-flatten):hover:not(:disabled) { --face: var(--flag-red); color: var(--on-flag-red); }
+.pw-btn-primary, .pw-btn-primary:hover:not(:disabled) { --face: var(--fg); color: var(--surface); }
 .pw-btn > span, .pw-btn > svg { position: relative; }
-.pw-btn .pw-hold { position: absolute; inset: 0; background: var(--on-flag-red); opacity: .25; transform-origin: left; transform: scaleX(var(--hold, 0)); transition: transform 240ms cubic-bezier(.16, 1, .3, 1); }
+.pw-btn .pw-hold { position: absolute; inset: 0; background: var(--on-flag-red); opacity: .25; transform-origin: left; transform: skewX(-20deg) scaleX(var(--hold, 0)); transition: transform 240ms cubic-bezier(.16, 1, .3, 1); }
 .pw-holding .pw-hold { transition: none; }
-.pw-btn.pw-holding { transform: scale(.985); }
+/* Plates: buttons, the market chip and the chosen range key stand on a face leaning 20°, like the title plates and the
+   panel wipe. The face is drawn on ::before, so the text stays upright and the tap target stays the button's box.
+   Each is a slab with a 4px side in its own face colour, darkened. */
+.pw-btn::before, .pw-market::before, .pw-trace-range::before { --side: color-mix(in srgb, var(--face) 60%, #000); content: ""; position: absolute; inset: 0; z-index: -1; background: var(--face); transform: skewX(-20deg); transition: background-color 150ms ease-out, inset 150ms ease-out, box-shadow 150ms ease-out; }
+.pw-btn::before, .pw-market::before, .pw-trace-range[aria-pressed="true"]::before { box-shadow: 1px 1px 0 var(--side), 2px 2px 0 var(--side), 3px 3px 0 var(--side), 4px 4px 0 var(--side); }
 
 /* Shell. */
 .pw-app { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) 0px; height: 100dvh; overflow: clip; transition: grid-template-rows 360ms cubic-bezier(.16, 1, .3, 1); }
@@ -155,12 +164,12 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-trace-scrubbing .pw-trace-tag { visibility: hidden; }
 /* Flags: a stripe for each warning, error and halt, in the event log's stripe colour. They stand on the axis rule, under the plot, so no line, dot or label covers one or is covered by one. */
 .pw-trace-flag { position: absolute; top: 100%; width: 3px; height: 12px; translate: -50% 0; background: var(--stripe); pointer-events: none; }
-/* Range presets under the axis, like a charting app's range bar: quiet words, the chosen one on a `surface-2` key. Each tap target reaches 44px tall. */
+/* Range presets under the axis, like a charting app's range bar: quiet words, the chosen one on a timing-white plate. Each tap target reaches 44px tall. */
 .pw-trace-ranges { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-2); }
-.pw-trace-range { position: relative; padding: 3px calc(var(--space-2) + 1px); border: 0; border-radius: var(--radius-sm); background: none; color: var(--muted); cursor: pointer; }
+.pw-trace-range { --face: transparent; position: relative; isolation: isolate; padding: 3px calc(var(--space-2) + 1px); border: 0; border-radius: var(--radius-sm); background: none; color: var(--muted); cursor: pointer; }
 .pw-trace-range::after { content: ""; position: absolute; inset: 50% 0 auto; height: var(--tap-min); translate: 0 -50%; }
 .pw-trace-range:hover { color: var(--fg); }
-.pw-trace-range[aria-pressed="true"] { background: var(--surface-2); color: var(--fg); }
+.pw-trace-range[aria-pressed="true"] { --face: var(--fg); color: var(--surface); }
 .pw-trace-empty .pw-trace-ranges { justify-content: center; }
 .pw-trace-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .pw-trace-line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
@@ -261,8 +270,8 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-screen { min-width: 0; }
 .pw-screen-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 52px; padding: 0 var(--space-4); background: var(--surface-3); }
 /* Titles read like a broadcast caption: `heading` type on a timing-white plate slanted like the panel wipe, on the head's band. */
-.pw-screen-title { position: relative; isolation: isolate; margin: 0; padding: 3px var(--space-3); color: var(--surface); filter: drop-shadow(var(--shadow-plate)); }
-.pw-screen-title::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--fg); transform: skewX(-20deg); }
+.pw-screen-title { position: relative; isolation: isolate; margin: 0; padding: 3px var(--space-3); color: var(--surface); }
+.pw-screen-title::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--fg); box-shadow: var(--shadow-plate); transform: skewX(-20deg); }
 .pw-screen-link { position: relative; color: var(--muted); text-decoration: none; }
 .pw-screen-link:hover { color: var(--fg); text-decoration: underline; }
 .pw-screen-body { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); }
@@ -301,6 +310,9 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-table :is(th, td):first-child { padding-left: var(--space-4); }
 .pw-table :is(th, td):last-child { padding-right: var(--space-4); }
 .pw-table .pw-r { text-align: right; }
+/* The foot of a long newest-first list: the count, and Show older on the right. */
+.pw-more { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) var(--space-4) var(--space-4); }
+.pw-more p { margin: 0; color: var(--muted); }
 /* Each position's P&L % against the widest one, either side of zero. */
 .pw-pl { display: inline-flex; align-items: center; gap: var(--space-3); }
 .pw-pl-bar { position: relative; width: 64px; height: 8px; background: linear-gradient(var(--control), var(--control)) center / 1px 100% no-repeat; }
@@ -360,7 +372,7 @@ button:disabled { cursor: default; opacity: .6; }
 
 /* Full screen is for a wall screen. It folds away where the gantry has no room for it: from 900px to 1099px, where the
    tab names take its width, and below 600px. */
-.pw-fullscreen { max-width: 12rem; transition: background-color 150ms ease-out, border-color 150ms ease-out, transform 120ms ease-out, max-width 360ms cubic-bezier(.16, 1, .3, 1), padding 360ms cubic-bezier(.16, 1, .3, 1), border-width 360ms cubic-bezier(.16, 1, .3, 1), margin-left 360ms cubic-bezier(.16, 1, .3, 1), opacity 240ms ease-out, visibility 360ms; }
+.pw-fullscreen { max-width: 12rem; transition: transform 120ms ease-out, max-width 360ms cubic-bezier(.16, 1, .3, 1), padding 360ms cubic-bezier(.16, 1, .3, 1), margin-left 360ms cubic-bezier(.16, 1, .3, 1), opacity 240ms ease-out, visibility 360ms; }
 /* Columns only a wider screen shows fade out before they give up their space, and fade in after they take it. */
 .pw-table .pw-hide-phone { transition: color 300ms ease-out, filter 240ms ease-out, opacity 240ms ease-out, display 240ms allow-discrete; }
 @starting-style { .pw-table .pw-hide-phone { opacity: 0; } }
@@ -373,7 +385,7 @@ button:disabled { cursor: default; opacity: .6; }
   .pw-ov { grid-template-columns: minmax(0, 1fr); grid-template-areas: "board" "tower" "screens" "events"; }
 }
 @media (max-width: 599px), (min-width: 900px) and (max-width: 1099px) {
-  .pw-fullscreen { max-width: 0; padding-inline: 0; border-width: 0; margin-left: calc(-1 * var(--gap)); opacity: 0; visibility: hidden; }
+  .pw-fullscreen { max-width: 0; padding-inline: 0; margin-left: calc(-1 * var(--gap)); opacity: 0; visibility: hidden; }
 }
 
 @media (max-width: 899px) {
@@ -396,9 +408,11 @@ button:disabled { cursor: default; opacity: .6; }
 @media (max-width: 359px) {
   .pw-market:not(.pw-market-open) .pw-market-state { max-width: 0; margin-left: calc(-1 * var(--space-2)); opacity: 0; visibility: hidden; }
 }
-.pw-tab { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); color: var(--muted); text-decoration: none; }
+.pw-tab { position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); color: var(--muted); text-decoration: none; }
 .pw-tab:hover, .pw-tab[aria-current="page"] { color: var(--fg); }
-.pw-tab-pill { position: absolute; top: -1px; left: 25%; right: 25%; height: 3px; background: var(--accent); view-transition-name: tab-pill; }
+.pw-tab[aria-current="page"] .pw-icon { color: var(--surface); }
+/* The current tab's icon stands on a timing-white plate, sitting high so its 4px side clears the label below. */
+.pw-tab-pill { position: absolute; top: calc(50% - 25px); left: calc(50% - 22px); z-index: -1; width: 44px; height: 26px; background: var(--accent); box-shadow: var(--shadow-plate); transform: skewX(-20deg); view-transition-name: tab-pill; }
 
 @container (min-width: 720px) {
   .pw-event { grid-template-columns: 72px 60px minmax(0, 1fr) auto; grid-template-areas: "time sev msg src"; }
@@ -407,7 +421,7 @@ button:disabled { cursor: default; opacity: .6; }
 
 /* Panels draw their face on ::before; at rest it fills the panel. When the window moves a panel into another layout,
    glide.ts slides the panel there and grows or shrinks the face to its new size through --glide-r and --glide-b,
-   clipping what the panel holds to the face. The face casts `shadow-stack`, and the clip leaves 6px for it.
+   clipping what the panel holds to the face. The face shows its 6px `shadow-stack` side, and the clip leaves room for it.
    Readout cells each cast one too: a later cell covers the shadow of the one before, so the strip casts one shadow. */
 .pw-screen, .pw-tower, .pw-trace, .pw-slat { --glide-r: 0px; --glide-b: 0px; position: relative; isolation: isolate; border-radius: var(--radius-sm); }
 :is(.pw-screen, .pw-tower, .pw-trace, .pw-slat)::before { content: ""; position: absolute; inset: 0 var(--glide-r) var(--glide-b) 0; z-index: -1; border-radius: inherit; background: var(--surface); box-shadow: var(--shadow-stack); }
@@ -440,6 +454,13 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-event.pw-event-new { animation: pw-drop-in 240ms cubic-bezier(.16, 1, .3, 1) both; }
 .pw-event-flash { position: absolute; inset: 0; z-index: -1; background: var(--border); pointer-events: none; animation: pw-fade-out 1600ms cubic-bezier(.16, 1, .3, 1) both; }
 @keyframes pw-drop-in { from { opacity: 0; transform: translateY(-4px); } }
+/* A table row that arrives while you watch drops in like an event. Its time, or a new position's symbol, stands on a
+   timing-white plate for 10s, then the plate fades and the text takes back its own colour. */
+.pw-table tr.pw-row-new { animation: pw-drop-in 240ms cubic-bezier(.16, 1, .3, 1) both; }
+.pw-fresh { position: relative; isolation: isolate; justify-self: start; animation: pw-fresh-ink 10.6s; }
+.pw-fresh::before { content: ""; position: absolute; inset: -2px -6px; z-index: -1; background: var(--fg); box-shadow: var(--shadow-plate); opacity: 0; transform: skewX(-20deg); animation: pw-fresh-plate 10.6s; }
+@keyframes pw-fresh-ink { 0%, 94% { color: var(--surface); } }
+@keyframes pw-fresh-plate { 0%, 94% { opacity: 1; } }
 
 .pw-table tr.pw-changed td { position: relative; isolation: isolate; }
 .pw-table tr.pw-changed td::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--border); pointer-events: none; animation: pw-fade-out 600ms ease-out both; }
@@ -448,7 +469,7 @@ button:disabled { cursor: default; opacity: .6; }
 .pw-sheet[data-leaving]::backdrop { animation: pw-fade-out 160ms ease-in forwards; }
 .pw-amount { transition: filter 240ms ease-out; }
 .pw-stat-value, .pw-delta, .pw-table td, .pw-trace { transition: color 300ms ease-out, filter 240ms ease-out; }
-.pw-trace-range, .pw-tab { transition: color 150ms ease-out, background-color 150ms ease-out; }
+.pw-trace-range, .pw-tab { transition: color 150ms ease-out; }
 
 /* Entrances. Each runs once, when its element arrives: on a new screen, a new range, a new row.
    Panels wipe in behind a slanted edge in reading order (--enter), then their rows slide in one after another (--row),
@@ -500,16 +521,16 @@ button:disabled { cursor: default; opacity: .6; }
   :is(.pw-tower-row, .pw-table tbody tr, .pw-event, .pw-figures-row, .pw-meter, .pw-system > div), .pw-trace-stroke, .pw-trace-flag { animation-name: pw-fade-in; }
   .pw-meter-fill, .pw-pl-bar::after { animation: none; }
   .pw-pulse-ring { animation-name: pw-glow; }
-  .pw-event.pw-event-new { animation: none; }
+  .pw-event.pw-event-new, .pw-table tr.pw-row-new { animation: none; }
   .pw-trace-vline { animation-name: pw-fade-in; }
   .pw-trace-vline-out { animation-name: pw-fade-out; }
-  .pw-btn { transition-property: background-color, border-color; }
   .pw-btn:active:not(:disabled), .pw-btn.pw-holding { transform: none; }
+  .pw-btn::before { transition-property: background-color; }
   .pw-btn .pw-hold, .pw-switch::after, .pw-meter-fill, .pw-trace-vline, .pw-app { transition: none; }
   /* Things that fold away at a breakpoint only fade. */
   .pw-market-state, .pw-market-next { transition-property: opacity, visibility; }
   .pw-popover { --pop-y: 0px; }
   .pw-fold { transition-property: opacity, display; }
-  .pw-fullscreen { transition-property: background-color, border-color, opacity, visibility; }
+  .pw-fullscreen { transition-property: opacity, visibility; }
 }
 @keyframes pw-glow { from { opacity: .5; } to { opacity: 0; } }
